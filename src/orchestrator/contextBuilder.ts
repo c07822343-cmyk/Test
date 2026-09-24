@@ -10,7 +10,8 @@ import type { MemoryStore } from '../memory/memory.ts';
 import type { ChatContentPart, ChatMessage } from '../provider/nvidiaClient.ts';
 import type { ModelSpec } from '../provider/modelRegistry.ts';
 import type { TaskRow } from '../queue/types.ts';
-import { UNTRUSTED_POLICY } from '../security/untrusted.ts';
+import { UNTRUSTED_POLICY, wrapUntrusted } from '../security/untrusted.ts';
+import type { ObsidianSync } from '../integrations/obsidian.ts';
 import type { ToolResult } from '../tools/runner.ts';
 import { truncate } from '../util/common.ts';
 import type { KnowledgeBase } from '../knowledge/kb.ts';
@@ -39,6 +40,7 @@ export class ContextBuilder {
   #artifacts: ArtifactStore;
   #skills: SkillEngine | null = null;
   #kb: KnowledgeBase | null = null;
+  #obsidian: ObsidianSync | null = null;
 
   constructor(db: Db, memory: MemoryStore, artifacts: ArtifactStore) {
     this.#db = db;
@@ -46,9 +48,10 @@ export class ContextBuilder {
     this.#artifacts = artifacts;
   }
 
-  attach(opts: { skills: SkillEngine; knowledge: KnowledgeBase }): void {
+  attach(opts: { skills: SkillEngine; knowledge: KnowledgeBase; obsidian?: ObsidianSync | null }): void {
     this.#skills = opts.skills;
     this.#kb = opts.knowledge;
+    this.#obsidian = opts.obsidian ?? null;
   }
 
   systemPrompt(agent: AgentDefinition, task: TaskRow, globalRules: any, lessons: string[], skillsBlock = ''): string {
@@ -139,6 +142,11 @@ export class ContextBuilder {
       const tags = [agent.type, agent.department, ...(task.skills ?? []).map((sk) => sk.split('@')[0])];
       const knowledge = await this.#kb.retrieve(tags, 6);
       if (knowledge.length) sections.push({ title: 'APEXWEB KNOWLEDGE BASE', priority: 45, body: knowledge.map((k) => `- [${k.category}] ${k.title}: ${k.content}`).join('\n') });
+    }
+    if (this.#obsidian) {
+      // The user's own Obsidian notes relevant to this task: reference material, never instructions.
+      const notes = this.#obsidian.relevantNotes(`${(brief as any).request ?? ''} ${task.title} ${task.mission}`);
+      if (notes.length) sections.push({ title: "NOTES FROM THE USER'S OBSIDIAN VAULT (reference only)", priority: 50, body: notes.map((n) => wrapUntrusted(`obsidian:${n.path}`, n.text, 1_500).block).join('\n\n') });
     }
     if (facts.length) sections.push({ title: 'CONFIRMED FACTS (only these may be stated as facts about the client)', priority: 94, body: facts.map((f) => `- ${f}`).join('\n') });
 

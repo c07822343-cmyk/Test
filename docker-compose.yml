@@ -51,10 +51,15 @@ services:
       APEXWEB_HOST: 0.0.0.0
       APEXWEB_PORT: "8080"
       WORKER_ID: apexweb-core
+      OBSIDIAN_VAULT_PATH: /vault
+      OBSIDIAN_VAULT_HOST_PATH: ${OBSIDIAN_VAULT_HOST_PATH:-}
     ports:
       - "${APEXWEB_PUBLISH_PORT:-8080}:8080"
     volumes:
       - coredata:/data
+      # Your Obsidian vault (the installer sets OBSIDIAN_VAULT_HOST_PATH).
+      # ApexWeb only writes inside its ApexWeb/ folder.
+      - ${OBSIDIAN_VAULT_HOST_PATH:-./vault}:/vault
     depends_on:
       postgres:
         condition: service_healthy

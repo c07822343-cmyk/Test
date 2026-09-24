@@ -13,6 +13,7 @@ import { migrate } from './db/migrate.ts';
 import { createPool, type Db } from './db/pool.ts';
 import { loadQaChecks } from './extensions/qaChecks.ts';
 import { loadToolExtensions } from './extensions/tools.ts';
+import { ObsidianSync } from './integrations/obsidian.ts';
 import { ProjectRepos } from './devops/git.ts';
 import { KnowledgeBase } from './knowledge/kb.ts';
 import { ArtifactStore } from './memory/artifacts.ts';
@@ -67,6 +68,7 @@ export interface Services {
   approvals: Approvals;
   heartbeats: Heartbeats;
   watchdog: Watchdog;
+  obsidian: ObsidianSync | null;
   extensions: {
     agents: string[];
     skills: { loaded: number; errors: string[] };
@@ -154,6 +156,8 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
   const approvals = new Approvals(db);
   const heartbeats = new Heartbeats(db);
   const contextBuilder = new ContextBuilder(db, memory, artifacts);
+  const vault = env.OBSIDIAN_VAULT_PATH?.trim();
+  let obsidian: ObsidianSync | null = null;
   contextBuilder.attach({ skills, knowledge });
   await memory.setIfAbsent('global', 'apexweb', 'rules', APEXWEB_GLOBAL_RULES, 'seed');
   const executor = new TaskExecutor({ db, config, queue, projects, provider, keyPool, memory, artifacts, contextBuilder, skills, cache, search, repos, lifecycle, fetchImpl: opts.researchFetchImpl });
@@ -164,9 +168,19 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
     : new InternalWorker({ queue, executor, main: mainAgent, owner: config.workerId, maxConcurrent: config.maxConcurrentTasks, heartbeats });
   mainAgent.driver = driver;
   const watchdog = new Watchdog({ db, queue, executor, main: mainAgent, cache });
+  if (vault) {
+    obsidian = new ObsidianSync({
+      vault, hostVault: env.OBSIDIAN_VAULT_HOST_PATH?.trim() || null, db, queue, skills, knowledge,
+      submit: async (message) => {
+        const r = await mainAgent.receive({ message, actor: 'obsidian' });
+        return { projectId: (r as any).project?.id ?? null, reply: (r as any).reply ?? '' };
+      },
+    });
+    contextBuilder.attach({ skills, knowledge, obsidian });
+  }
   const services: Services = {
     config, db, queue, projects, memory, artifacts, keyPool, router, client, provider, contextBuilder, executor, mainAgent, driver,
-    skills, knowledge, cache, search, repos, lifecycle, approvals, heartbeats, watchdog,
+    skills, knowledge, cache, search, repos, lifecycle, approvals, heartbeats, watchdog, obsidian,
     extensions: { agents: agentExt, skills: skillLoad, templates: templatesLoaded, knowledge_seeded: seeded, tools: toolExt, qa_checks: qaExt, provider_models: registry.extensions },
     startedAt: new Date(),
   };

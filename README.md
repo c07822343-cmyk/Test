@@ -39,6 +39,24 @@ User ─► Main Agent ─► blueprint ─► skills ─► task graph ─► T
 | **Learning** | Per-project retrospectives propose *candidate* knowledge. It only becomes global knowledge after a human promotes it, and project-specific details are refused. |
 | **Observability** | Live per-key RPM bars from real limiter state, plus usage, cost-avoidance (cache hits, dedupe), audit log, dead letters and metrics. |
 
+## One-click install (desktop app + Obsidian)
+
+The installer sets up Docker, Obsidian, Node.js, the services and the desktop app. It creates
+`.env` with random secrets, asks for your NVIDIA keys and your Obsidian vault, and makes
+everything start when you log in:
+
+- **Windows:** `powershell -ExecutionPolicy Bypass -File desktop\install\install-windows.ps1`
+- **macOS / Linux:** `bash desktop/install/install.sh`
+
+The **desktop app** (`desktop/`) is a dashboard window plus a tray icon. It keeps the
+services running 24/7 and notifies you about approvals and finished projects.
+
+**Obsidian:** every agent, skill, project, task and report is written to `<vault>/ApexWeb/`
+as linked notes, so the graph view shows who did what. A note dropped in `ApexWeb/Inbox`
+becomes a request to the Main Agent. Agents get your most relevant notes as reference
+material (read-only, screened for injection, never treated as instructions). ApexWeb never
+writes outside its own folder.
+
 ## Quick start (Docker)
 
 ```bash

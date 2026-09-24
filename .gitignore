@@ -8,3 +8,5 @@ data/
 n8n/credentials/*.json
 !n8n/credentials/README.md
 coverage/
+vault/
+desktop/dist/

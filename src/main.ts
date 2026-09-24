@@ -19,6 +19,7 @@ async function main() {
   const recovered = await recoverAfterRestart(s);
   s.driver.start();
   s.watchdog.start();
+  s.obsidian?.start();
   const beat = () => void s.heartbeats.beat(config.workerId, 'core', 0, { driver: config.executionDriver }).catch(() => undefined);
   beat();
   setInterval(beat, 15_000).unref();
@@ -34,12 +35,14 @@ async function main() {
     skills: s.extensions.skills.loaded,
     templates: s.extensions.templates.loaded,
     search_provider: s.search.name,
+    obsidian_vault: s.obsidian?.vault ?? null,
   });
 
   const shutdown = async (signal: string) => {
     log.info('shutting down', { signal });
     await app.close();
     s.watchdog.stop();
+    s.obsidian?.stop();
     await s.driver.stop({ abort: true, timeoutMs: 20_000 } as any);
     s.keyPool.stop();
     await s.db.end();

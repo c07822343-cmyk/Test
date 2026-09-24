@@ -188,7 +188,7 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   // --------------------------------------------------------------- PROJECTS
   app.get('/v1/projects', async () => {
     const list = await s.projects.list(100);
-    return { projects: await Promise.all(list.map(async (p) => ({ id: p.id, name: p.name, kind: p.kind, status: p.status, paused: p.paused, created_at: p.created_at, progress: await s.queue.projectProgress(p.id) }))) };
+    return { projects: await Promise.all(list.map(async (p) => ({ id: p.id, name: p.name, kind: p.kind, status: p.status, stage: p.stage, paused: p.paused, created_at: p.created_at, progress: await s.queue.projectProgress(p.id) }))) };
   });
   app.get('/v1/projects/:id', async (req: any) => {
     const p = await s.projects.get(req.params.id);
@@ -317,6 +317,12 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   app.get('/v1/commands', async () => ({ commands: COMMANDS }));
   app.get('/v1/templates', async () => ({ templates: templates().map((t) => ({ intent: t.intent, label: t.label, description: t.description, tasks: t.tasks.length, required: t.required, source: t.source })) }));
   app.get('/v1/extensions', async () => ({ extensions: s.extensions }));
+  app.get('/v1/integrations/obsidian', async () => ({ enabled: !!s.obsidian, ...(s.obsidian?.status() ?? { hint: 'Set OBSIDIAN_VAULT_PATH to your vault folder to connect Obsidian.' }) }));
+  app.post('/v1/integrations/obsidian/sync', async () => {
+    if (!s.obsidian) throw new AppError('not_configured', 'Obsidian is not connected (set OBSIDIAN_VAULT_PATH)', 409);
+    await s.obsidian.syncAll();
+    return s.obsidian.status();
+  });
   app.get('/v1/skills', async () => ({ skills: s.skills.catalog(), load: s.extensions.skills }));
   app.get('/v1/skills/:name', async (req: any) => {
     const d = s.skills.resolve(req.params.name);
@@ -463,7 +469,7 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
     const { rows } = await s.db.query(`SELECT agent_type, status, count(*)::int AS n FROM tasks WHERE kind <> 'root' GROUP BY agent_type, status`);
     return {
       agents: AGENTS.map((a) => ({
-        type: a.type, name: a.name, department: a.department, pipeline: a.pipeline, capability: a.capability, parent: a.parent ?? null,
+        type: a.type, name: a.name, department: a.department, pipeline: a.pipeline, capability: a.capability, parent: a.parent ?? null, mission: a.mission,
         sub_agents: a.subAgents ?? [], reviewer: !!a.reviewer, tools: a.tools ?? [], produces_files: !!a.producesFiles,
         tasks: Object.fromEntries(rows.filter((r) => r.agent_type === a.type).map((r) => [r.status, r.n])),
       })),

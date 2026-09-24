@@ -1,0 +1,25 @@
+{
+  "name": "apexweb-desktop",
+  "productName": "ApexWeb OS",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop control app for ApexWeb OS: dashboard window, tray icon, service watchdog and notifications.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.4.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.apexweb.os",
+    "productName": "ApexWeb OS",
+    "files": ["main.js", "status.html", "assets/**"],
+    "win": { "target": "nsis", "icon": "assets/icon.png" },
+    "nsis": { "oneClick": true, "perMachine": false, "runAfterFinish": true },
+    "mac": { "target": "dmg", "icon": "assets/icon.png", "category": "public.app-category.productivity" },
+    "linux": { "target": "AppImage", "icon": "assets/icon.png", "category": "Utility" }
+  }
+}

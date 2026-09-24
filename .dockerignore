@@ -6,3 +6,6 @@ data
 .git
 *.log
 coverage
+**/node_modules
+desktop
+vault
