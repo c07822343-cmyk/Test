@@ -28,6 +28,10 @@ export const WF = {
   assembly: { id: 'apxWf14FinalAsmb', name: 'ApexWeb 14 — Final Assembly' },
   retry: { id: 'apxWf15ErrRetry0', name: 'ApexWeb 15 — Error / Retry Manager' },
   metrics: { id: 'apxWf16Metrics00', name: 'ApexWeb 16 — Observability / Metrics' },
+  visual_qa: { id: 'apxWf17VisualQa0', name: 'ApexWeb 17 — Visual QA Pipeline' },
+  approvals: { id: 'apxWf18Approvals', name: 'ApexWeb 18 — Human Approval Gates' },
+  watchdog: { id: 'apxWf19Watchdog0', name: 'ApexWeb 19 — Watchdog & Heartbeats' },
+  skills: { id: 'apxWf20SkillRunr', name: 'ApexWeb 20 — Skill Runner' },
 } as const;
 
 const PIPELINES = [
@@ -36,7 +40,8 @@ const PIPELINES = [
   { key: 'content', label: 'Content', blurb: 'Website Copywriter, Brand Voice, Conversion Optimization (review gate), Proposal Agent, Project Documentation, Revision Manager.' },
   { key: 'seo', label: 'SEO', blurb: 'SEO Specialist (+ Metadata, Schema, Internal Link and Local SEO checkers), Local SEO Specialist.' },
   { key: 'design_review', label: 'Design Review', blurb: 'Design Critic (+ Typography, Spacing, Color, Mobile UI checkers) and Image/Visual Analysis. The Design Critic can reject work and send it back for revision.' },
-  { key: 'qa', label: 'QA', blurb: 'Responsive Design, Accessibility, Performance Engineer, QA Director (+ Link, Content Consistency checkers) and the Final QA / Release gate (rejection starts a bounded fix cycle).' },
+  { key: 'qa', label: 'QA', blurb: 'Responsive Design, Accessibility, Performance Engineer, Bug Finder, Change Reviewer, QA Director (+ Link, Content Consistency checkers), the Main Agent\'s review triage and the Final QA / Release gate (rejection starts a bounded fix cycle).' },
+  { key: 'visual_qa', label: 'Visual QA', blurb: 'Visual QA Specialist: renders desktop/tablet/mobile, captures screenshots, runs region checks (nav, hero, typography, spacing, CTAs, cards, forms, animation, 3D, footer, overflow), compares with the previous pass and sends issues back until quality gates pass or the refinement limit is reached (each cycle must measurably improve).' },
 ] as const;
 
 const J = (obj: string) => `={{ JSON.stringify(${obj}) }}`;
@@ -47,13 +52,17 @@ function intake(core: string): N8nWorkflow {
   b.sticky('About this workflow', '## 01 · Main Intake\nThe front door. POST `{ "message": "...", "idempotency_key"?: "..." }` to `/webhook/apexweb/request` (header `X-ApexWeb-Webhook-Secret`).\n\nThe request becomes a project (duplicates are detected), then the **Main Agent Orchestrator** takes over. You normally talk to the Main Agent through the dashboard chat; this is the same path for external channels.', [-40, -300], [520, 240], 4);
   b.webhook('MAIN — Receive Request', 'apexweb/request', [0, 0], { respond: 'lastNode' });
   b.ifNode('MAIN — Request Valid?', "typeof $json.body?.message === 'string' && $json.body.message.trim().length > 0 && $json.body.message.length <= 20000", [240, 0]);
+  b.ifNode('MAIN — Is Command?', "$('MAIN — Receive Request').first().json.body.message.trim().startsWith('/')", [360, -220]);
+  b.core('MAIN — Run Command', "'/v1/chat'", [600, -300], { body: J("{ message: $('MAIN — Receive Request').first().json.body.message, project_id: $('MAIN — Receive Request').first().json.body.project_id ?? null }"), timeoutMs: 300_000 });
   b.core('MAIN — Register Project', "'/v1/main/intake'", [480, -100], { body: J("{ message: $('MAIN — Receive Request').first().json.body.message, idempotency_key: $('MAIN — Receive Request').first().json.body.idempotency_key ?? null }") });
   b.ifNode('MAIN — Duplicate Request?', '$json.duplicate', [720, -100]);
   b.execute('MAIN — Start Main Agent', WF.main.id, WF.main.name, [960, -20], { wait: false });
   b.setJson('OUTPUT — Acknowledge Request', "{ status: $('MAIN — Register Project').first().json.duplicate ? 'duplicate' : 'accepted', project_id: $('MAIN — Register Project').first().json.project_id, message: $('MAIN — Register Project').first().json.duplicate ? 'This request matches an existing project; no duplicate was started.' : 'The Main Agent is interpreting and planning your request.' }", [1200, -100]);
   b.setJson('OUTPUT — Reject Invalid Request', "{ status: 'rejected', error: 'A non-empty \"message\" (max 20,000 chars) is required.' }", [480, 140]);
   b.chain('MAIN — Receive Request', 'MAIN — Request Valid?');
-  b.connect('MAIN — Request Valid?', 'MAIN — Register Project', 0);
+  b.connect('MAIN — Request Valid?', 'MAIN — Is Command?', 0);
+  b.connect('MAIN — Is Command?', 'MAIN — Run Command', 0);
+  b.connect('MAIN — Is Command?', 'MAIN — Register Project', 1);
   b.connect('MAIN — Request Valid?', 'OUTPUT — Reject Invalid Request', 1);
   b.chain('MAIN — Register Project', 'MAIN — Duplicate Request?');
   b.connect('MAIN — Duplicate Request?', 'OUTPUT — Acknowledge Request', 0);
@@ -65,16 +74,20 @@ function intake(core: string): N8nWorkflow {
 // ------------------------------------------------------------------ 02
 function mainAgent(core: string): N8nWorkflow {
   const b = new WorkflowBuilder(WF.main.id, WF.main.name, core, { active: true, tags: ['apexweb', 'main'] });
-  b.sticky('About this workflow', '## 02 · Main Agent Orchestrator\nUSER REQUEST → **MAIN AGENT** → TASK PLAN → TASK QUEUE.\n\n1. Interpret the request (NVIDIA via Key Manager)\n2. Ask the user only if genuinely blocked\n3. Task Decomposer adapts the ApexWeb workflow template into a validated dependency graph\n4. Enqueue the graph and wake the dispatcher.\n\nThe Main Agent never does specialist work itself.', [-40, -340], [560, 260], 4);
+  b.sticky('About this workflow', '## 02 · Main Agent Orchestrator\nUSER → **MAIN AGENT** → BLUEPRINT → SKILL ENGINE → TASK PLANNER → TASK QUEUE.\n\n1. Interpret the request (NVIDIA via Key Manager)\n2. Ask the user only if genuinely blocked\n3. Write the project blueprint (source of truth)\n4. Select the skill chain (sub-skills, pinned versions)\n5. Adapt the workflow template into a validated, gated dependency graph with skills per task\n6. Enqueue (or wait for plan approval in assist / dry-run mode) and wake the dispatcher.\n\nThe Main Agent never does specialist work itself.', [-40, -380], [620, 300], 4);
   b.webhook('MAIN — Orchestrate Webhook', 'apexweb/orchestrate', [0, 0]);
   b.subTrigger('MAIN — Called By Intake', [0, 180]);
   b.setJson('MAIN — Project Context', '{ project_id: $json.body?.project_id ?? $json.project_id }', [240, 80]);
   b.core('MAIN — Interpret Request', "'/v1/main/projects/' + $json.project_id + '/interpret'", [480, 80], { timeoutMs: 600_000, errorOutput: true, notes: 'NVIDIA planning model, routed by the Model Router and leased from the Key Manager' });
   b.ifNode('MAIN — Needs Clarification?', '$json.needs_clarification', [720, 0]);
   b.noop('OUTPUT — Clarification Requested', [960, -120], 'Questions were posted to the user; planning resumes when they answer');
-  b.core('MAIN — Build Plan', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/plan'", [960, 60], { timeoutMs: 600_000, errorOutput: true, notes: 'Task Decomposer + plan validation (registry, DAG, required stages, review gates)' });
-  b.core('QUEUE — Enqueue Task Graph', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/enqueue'", [1200, 60], { errorOutput: true });
-  b.execute('ROUTER — Wake Dispatcher', WF.dispatcher.id, WF.dispatcher.name, [1440, 60], { wait: false });
+  b.core('MAIN — Write Project Blueprint', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/blueprint'", [960, 60], { timeoutMs: 600_000, errorOutput: true, notes: 'Source of truth: pages, requirements, visual direction; refuses invented facts' });
+  b.core('SKILLS — Select Skill Chain', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/skills'", [1200, 60], { timeoutMs: 300_000, errorOutput: true, notes: 'Skill Engine: chain + sub-skills, versions pinned' });
+  b.core('MAIN — Build Plan', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/plan'", [1440, 60], { timeoutMs: 600_000, errorOutput: true, notes: 'Task Decomposer + validation + approval gates + skills per task + dry-run report' });
+  b.core('QUEUE — Enqueue Task Graph', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/enqueue'", [1680, 60], { errorOutput: true });
+  b.ifNode('APPROVAL — Plan Needs Approval?', '!!$json.awaiting_approval', [1920, 60]);
+  b.noop('APPROVAL — Dry Run Awaiting Approval', [2160, -40], 'Assist mode / dry run: execution starts when the user approves the plan');
+  b.execute('ROUTER — Wake Dispatcher', WF.dispatcher.id, WF.dispatcher.name, [2160, 140], { wait: false });
   b.core('MAIN — Report Planning Failure', "'/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/fail-planning'", [960, 300], { body: J("{ message: String($json.error?.message ?? $json.error ?? 'planning failed').slice(0, 1500) }") });
   b.connect('MAIN — Orchestrate Webhook', 'MAIN — Project Context');
   b.connect('MAIN — Called By Intake', 'MAIN — Project Context');
@@ -82,11 +95,17 @@ function mainAgent(core: string): N8nWorkflow {
   b.connect('MAIN — Interpret Request', 'MAIN — Needs Clarification?', 0);
   b.connect('MAIN — Interpret Request', 'MAIN — Report Planning Failure', 1);
   b.connect('MAIN — Needs Clarification?', 'OUTPUT — Clarification Requested', 0);
-  b.connect('MAIN — Needs Clarification?', 'MAIN — Build Plan', 1);
+  b.connect('MAIN — Needs Clarification?', 'MAIN — Write Project Blueprint', 1);
+  b.connect('MAIN — Write Project Blueprint', 'SKILLS — Select Skill Chain', 0);
+  b.connect('MAIN — Write Project Blueprint', 'MAIN — Report Planning Failure', 1);
+  b.connect('SKILLS — Select Skill Chain', 'MAIN — Build Plan', 0);
+  b.connect('SKILLS — Select Skill Chain', 'MAIN — Report Planning Failure', 1);
   b.connect('MAIN — Build Plan', 'QUEUE — Enqueue Task Graph', 0);
   b.connect('MAIN — Build Plan', 'MAIN — Report Planning Failure', 1);
-  b.connect('QUEUE — Enqueue Task Graph', 'ROUTER — Wake Dispatcher', 0);
+  b.connect('QUEUE — Enqueue Task Graph', 'APPROVAL — Plan Needs Approval?', 0);
   b.connect('QUEUE — Enqueue Task Graph', 'MAIN — Report Planning Failure', 1);
+  b.connect('APPROVAL — Plan Needs Approval?', 'APPROVAL — Dry Run Awaiting Approval', 0);
+  b.connect('APPROVAL — Plan Needs Approval?', 'ROUTER — Wake Dispatcher', 1);
   return b.wf;
 }
 
@@ -230,7 +249,10 @@ function pipeline(core: string, p: (typeof PIPELINES)[number]): N8nWorkflow {
   b.connect('MODEL — Capability Request', 'MODEL — Select NVIDIA Model');
   b.connect('MODEL — Select NVIDIA Model', 'MODEL — Model Available?');
   b.connect('MODEL — Model Available?', 'CONTEXT — Build Context', 0);
-  b.connect('CONTEXT — Build Context', 'KEYPOOL — Lease Request', 0);
+  b.ifNode('CACHE — Reused Earlier Answer?', '$json.cached === true', [1150, -200]);
+  b.connect('CONTEXT — Build Context', 'CACHE — Reused Earlier Answer?', 0);
+  b.connect('CACHE — Reused Earlier Answer?', 'REVIEW — Validate Result', 0);
+  b.connect('CACHE — Reused Earlier Answer?', 'KEYPOOL — Lease Request', 1);
   b.connect('KEYPOOL — Lease Request', 'KEYPOOL — Acquire Key Lease');
   b.connect('KEYPOOL — Acquire Key Lease', 'KEYPOOL — Lease Granted?');
   b.connect('KEYPOOL — Lease Granted?', 'EXECUTOR — Run Agent', 0);
@@ -260,7 +282,7 @@ function assembly(core: string): N8nWorkflow {
   b.webhook('ASSEMBLY — Project Settled', 'apexweb/final-assembly', [0, 0]);
   b.core('ASSEMBLY — Assemble Package', "'/v1/main/projects/' + $json.body.project_id + '/assemble'", [240, 0], { timeoutMs: 600_000, errorOutput: true });
   b.ifNode('QA — Final QA Passed?', '$json.report?.qa?.passed === true', [480, -60]);
-  b.setJson('OUTPUT — Completion Report', "{ project_id: $json.project_id, qa: 'passed', completed: $json.report.completed, agents_used: $json.report.agents_used.map(a => a.name), files: $json.report.files, next_step: $json.report.recommended_next_step }", [720, -140]);
+  b.setJson('OUTPUT — Completion Report', "{ project_id: $json.project_id, qa: 'passed', completed: $json.report.completed, agents_used: $json.report.agents_used.map(a => a.name), skills_used: $json.report.skills_used, scorecard: $json.report.scorecard?.totals, files: $json.report.files, next_step: $json.report.recommended_next_step }", [720, -140]);
   b.setJson('OUTPUT — Completion Report (QA Issues)', "{ project_id: $json.project_id, qa: $json.report?.qa?.verdict ?? 'not run', remaining_issues: $json.report?.qa?.remaining_issues ?? [], completed: $json.report?.completed, files: $json.report?.files }", [720, 20]);
   b.noop('ASSEMBLY — Assembly Failed', [480, 160], 'Project stays ASSEMBLING; re-send this webhook or call /v1/main/projects/:id/assemble to retry');
   b.chain('ASSEMBLY — Project Settled', 'ASSEMBLY — Assemble Package');
@@ -338,6 +360,63 @@ function metrics(core: string): N8nWorkflow {
   return b.wf;
 }
 
+// ------------------------------------------------------------------ 18
+function approvals(core: string): N8nWorkflow {
+  const b = new WorkflowBuilder(WF.approvals.id, WF.approvals.name, core, { active: true, tags: ['apexweb', 'approvals'] });
+  b.sticky('About this workflow', '## 18 · Human Approval Gates\nYou stay in control. Configurable per project (assist / semi-autonomous / autopilot): plan approval (dry run), major redesign, final handoff, irreversible repository operations (rollback), external publishing.\n\nPOST `/webhook/apexweb/approval` with `{ "approval_id", "decision": "approve"|"reject", "note"? }`. Every 5 minutes pending approvals are collected so you can route them to Slack/email.', [-40, -360], [600, 260], 3);
+  b.webhook('APPROVAL — Decision Received', 'apexweb/approval', [0, 0], { respond: 'lastNode' });
+  b.ifNode('APPROVAL — Valid Decision?', "['approve', 'reject'].includes($json.body?.decision) && typeof $json.body?.approval_id === 'string'", [240, 0]);
+  b.core('APPROVAL — Apply Decision', "'/v1/approvals/' + $json.body.approval_id + '/' + $json.body.decision", [480, -60], { body: J("{ note: $json.body.note ?? undefined }"), timeoutMs: 300_000 });
+  b.execute('ROUTER — Wake Dispatcher', WF.dispatcher.id, WF.dispatcher.name, [720, -60], { wait: false });
+  b.setJson('APPROVAL — Invalid Request', "{ error: 'approval_id and decision (approve|reject) are required' }", [480, 120]);
+  b.chain('APPROVAL — Decision Received', 'APPROVAL — Valid Decision?');
+  b.connect('APPROVAL — Valid Decision?', 'APPROVAL — Apply Decision', 0);
+  b.connect('APPROVAL — Valid Decision?', 'APPROVAL — Invalid Request', 1);
+  b.connect('APPROVAL — Apply Decision', 'ROUTER — Wake Dispatcher');
+  b.schedule('APPROVAL — Every 5 Minutes', 5, [0, 320]);
+  b.core('APPROVAL — List Pending Approvals', "'/v1/approvals?status=pending'", [240, 320], { method: 'GET' });
+  b.ifNode('APPROVAL — Anything Pending?', '($json.approvals ?? []).length', [480, 320], { type: 'number', operation: 'gt', right: 0 });
+  b.noop('APPROVAL — Notify Approver', [720, 280], 'Attach Slack / email here: each pending approval has an id, gate and title');
+  b.chain('APPROVAL — Every 5 Minutes', 'APPROVAL — List Pending Approvals', 'APPROVAL — Anything Pending?');
+  b.connect('APPROVAL — Anything Pending?', 'APPROVAL — Notify Approver', 0);
+  return b.wf;
+}
+
+// ------------------------------------------------------------------ 19
+function watchdog(core: string): N8nWorkflow {
+  const b = new WorkflowBuilder(WF.watchdog.id, WF.watchdog.name, core, { active: true, tags: ['apexweb', 'observability'] });
+  b.sticky('About this workflow', '## 19 · Watchdog & Heartbeats\nWorkers report heartbeats; tasks carry heartbeats during long steps. Every minute the watchdog detects stuck tasks, dead or disconnected workers, orphaned claims (lost executions) and expired leases, and recovers them safely through the retry path. Recoveries appear in the live activity feed.', [-40, -320], [600, 220], 2);
+  b.schedule('WATCHDOG — Every Minute', 1, [0, 0]);
+  b.core('WATCHDOG — Detect & Recover', "'/v1/watchdog/run'", [240, 0]);
+  b.code('WATCHDOG — Summarise Recoveries', [
+    'const r = $input.first().json.recovered ?? {};',
+    'const total = Object.entries(r).filter(([k]) => k !== "cache_purged").reduce((n, [, v]) => n + Number(v || 0), 0);',
+    'return [{ json: { ...r, total } }];',
+  ].join('\n'), [480, 0]);
+  b.ifNode('WATCHDOG — Recovered Anything?', '$json.total', [720, 0], { type: 'number', operation: 'gt', right: 0 });
+  b.noop('WATCHDOG — Recovered Work', [960, -60], 'Stuck/orphaned work was returned to the retry path');
+  b.noop('WATCHDOG — All Healthy', [960, 80]);
+  b.chain('WATCHDOG — Every Minute', 'WATCHDOG — Detect & Recover', 'WATCHDOG — Summarise Recoveries', 'WATCHDOG — Recovered Anything?');
+  b.connect('WATCHDOG — Recovered Anything?', 'WATCHDOG — Recovered Work', 0);
+  b.connect('WATCHDOG — Recovered Anything?', 'WATCHDOG — All Healthy', 1);
+  b.connect('WATCHDOG — Recovered Work', 'ROUTER — Wake Dispatcher');
+  b.execute('ROUTER — Wake Dispatcher', WF.dispatcher.id, WF.dispatcher.name, [1200, -60], { wait: false });
+  b.core('WATCHDOG — Worker Heartbeats', "'/v1/workers'", [240, 220], { method: 'GET' });
+  b.connect('WATCHDOG — Every Minute', 'WATCHDOG — Worker Heartbeats');
+  return b.wf;
+}
+
+// ------------------------------------------------------------------ 20
+function skillRunner(core: string): N8nWorkflow {
+  const b = new WorkflowBuilder(WF.skills.id, WF.skills.name, core, { active: true, tags: ['apexweb', 'skills'] });
+  b.sticky('About this workflow', '## 20 · Skill Runner\nEvery skill in the registry is callable. POST `/webhook/apexweb/skill` with `{ "skill": "website-audit", "mission": "...", "project_id"?, "agent_type"? }`: the skill is loaded into a compatible specialist and executed through the normal pipeline (key pool, limiter, validation).', [-40, -300], [560, 200], 5);
+  b.webhook('SKILLS — Run Request', 'apexweb/skill', [0, 0], { respond: 'lastNode' });
+  b.core('SKILLS — Load Skill Into Agent', "'/v1/skills/' + encodeURIComponent($json.body.skill) + '/run'", [240, 0], { body: J("{ mission: $json.body.mission, project_id: $json.body.project_id ?? undefined, agent_type: $json.body.agent_type ?? undefined, priority_class: $json.body.priority_class ?? undefined }") });
+  b.execute('ROUTER — Wake Dispatcher', WF.dispatcher.id, WF.dispatcher.name, [480, 0], { wait: false });
+  b.chain('SKILLS — Run Request', 'SKILLS — Load Skill Into Agent', 'ROUTER — Wake Dispatcher');
+  return b.wf;
+}
+
 export function generateWorkflows(coreUrl: string): N8nWorkflow[] {
   const all = [
     intake(coreUrl),
@@ -351,6 +430,9 @@ export function generateWorkflows(coreUrl: string): N8nWorkflow[] {
     assembly(coreUrl),
     retryManager(coreUrl),
     metrics(coreUrl),
+    approvals(coreUrl),
+    watchdog(coreUrl),
+    skillRunner(coreUrl),
   ];
   // n8n 2.x keys workflow history by versionId: derive it from content so every
   // change is a new version (re-publishing an unchanged id would keep the old graph).

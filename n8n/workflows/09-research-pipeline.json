@@ -746,6 +746,41 @@
           "waitForSubWorkflow": false
         }
       }
+    },
+    {
+      "id": "a9bb613d-5460-45d4-a11b-1afb4fd6e61f",
+      "name": "CACHE — Reused Earlier Answer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1150,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8d8c0fdc-5c7e-461f-a69a-ca44543e628e",
+              "leftValue": "={{ $json.cached === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -840,7 +875,7 @@
       "main": [
         [
           {
-            "node": "KEYPOOL — Lease Request",
+            "node": "CACHE — Reused Earlier Answer?",
             "type": "main",
             "index": 0
           }
@@ -848,6 +883,24 @@
         [
           {
             "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CACHE — Reused Earlier Answer?": {
+      "main": [
+        [
+          {
+            "node": "REVIEW — Validate Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KEYPOOL — Lease Request",
             "type": "main",
             "index": 0
           }
@@ -1096,5 +1149,5 @@
       "name": "pipeline"
     }
   ],
-  "versionId": "6eeea81f-b239-4eec-a0de-54484b22582f"
+  "versionId": "c0456f34-f0e2-4874-a204-1fe1cfa2346e"
 }

@@ -133,7 +133,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ JSON.stringify({ project_id: $json.project_id, qa: 'passed', completed: $json.report.completed, agents_used: $json.report.agents_used.map(a => a.name), files: $json.report.files, next_step: $json.report.recommended_next_step }) }}",
+        "jsonOutput": "={{ JSON.stringify({ project_id: $json.project_id, qa: 'passed', completed: $json.report.completed, agents_used: $json.report.agents_used.map(a => a.name), skills_used: $json.report.skills_used, scorecard: $json.report.scorecard?.totals, files: $json.report.files, next_step: $json.report.recommended_next_step }) }}",
         "options": {}
       }
     },
@@ -239,5 +239,5 @@
       "name": "qa"
     }
   ],
-  "versionId": "1afac351-0291-4efa-a0bc-8af254ee91d8"
+  "versionId": "7d5651f1-29d0-4195-acaf-9fe7c83437d7"
 }

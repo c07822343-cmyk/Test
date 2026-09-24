@@ -122,6 +122,8 @@ export async function responsiveRender(files: SiteFiles, opts: { screenshots?: b
             const r = el.getBoundingClientRect();
             const st = getComputedStyle(el);
             if (r.width === 0 || st.visibility === 'hidden' || st.display === 'none') continue;
+            // Off-screen until focused (e.g. skip links) is not a tap target.
+            if (r.right <= 0 || r.bottom <= 0 || r.left >= vw) continue;
             const inline = st.display === 'inline' && el.closest('p, li');
             if (!inline && (r.height < 44 || r.width < 44)) small.push(`${describe(el)} (${Math.round(r.width)}x${Math.round(r.height)})`);
           }

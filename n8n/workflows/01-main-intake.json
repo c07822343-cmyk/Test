@@ -80,6 +80,84 @@
       }
     },
     {
+      "id": "0bf5eee2-414b-46e3-acf0-9e693c7928c5",
+      "name": "MAIN — Is Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        360,
+        -220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ca45ac46-7552-4161-a6a7-ab3da6b4209c",
+              "leftValue": "={{ $('MAIN — Receive Request').first().json.body.message.trim().startsWith('/') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "aea847fb-8f61-4917-a06d-fd5c7b7fe3df",
+      "name": "MAIN — Run Command",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/chat' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $('MAIN — Receive Request').first().json.body.message, project_id: $('MAIN — Receive Request').first().json.body.project_id ?? null }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
       "id": "67a74596-c03b-433f-a780-adeb2139d9fb",
       "name": "MAIN — Register Project",
       "type": "n8n-nodes-base.httpRequest",
@@ -235,7 +313,7 @@
       "main": [
         [
           {
-            "node": "MAIN — Register Project",
+            "node": "MAIN — Is Command?",
             "type": "main",
             "index": 0
           }
@@ -243,6 +321,24 @@
         [
           {
             "node": "OUTPUT — Reject Invalid Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Is Command?": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Run Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Register Project",
             "type": "main",
             "index": 0
           }
@@ -314,5 +410,5 @@
       "name": "main"
     }
   ],
-  "versionId": "ff942b61-aacd-407c-ad24-47e1353e7c48"
+  "versionId": "561a023b-c0e3-414d-af0a-b09d720c29ba"
 }

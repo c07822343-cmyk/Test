@@ -44,7 +44,7 @@ export class KnowledgeBase {
     this.#db = db;
   }
 
-  /** Seeds knowledge/*.json (global, active). Existing ids are left as operators edited them. */
+  /** Seeds memory/*.json (global, active). Existing ids are left as operators edited them. */
   async seed(dir: string): Promise<number> {
     if (!existsSync(dir)) return 0;
     let n = 0;

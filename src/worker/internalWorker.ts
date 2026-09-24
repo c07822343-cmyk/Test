@@ -113,6 +113,7 @@ export class InternalWorker implements ExecutionDriver {
     this.#queue.off('task_cancelled', this.#onCancelled);
     if (opts.abort) for (const ac of this.#inflight.values()) ac.abort(new Error('worker stopping'));
     const deadline = Date.now() + (opts.timeoutMs ?? 30_000);
-    while (this.#inflight.size && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+    // A claim already in progress finishes first so no task is claimed after stop() returns.
+    while ((this.#pumping || this.#inflight.size) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
   }
 }

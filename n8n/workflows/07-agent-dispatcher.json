@@ -304,6 +304,30 @@
               },
               "renameOutput": true,
               "outputKey": "QA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d3b30e47-1589-4253-a8d2-51983e8b9cc6",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "visual_qa",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Visual QA"
             }
           ]
         },
@@ -501,6 +525,37 @@
       }
     },
     {
+      "id": "667b47da-c18b-4e8f-aa6b-edef2753ea1e",
+      "name": "EXECUTOR — Visual QA Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        460
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf17VisualQa0",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 17 — Visual QA Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
       "id": "58567ca8-e8b3-4c7f-a02b-75e626f45a39",
       "name": "ROUTER — Unknown Pipeline",
       "type": "n8n-nodes-base.noOp",
@@ -555,6 +610,13 @@
         [
           {
             "node": "EXECUTOR — QA Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — Visual QA Pipeline",
             "type": "main",
             "index": 0
           }
@@ -664,5 +726,5 @@
       "name": "router"
     }
   ],
-  "versionId": "3524daa1-2669-4f06-a167-47af02926e12"
+  "versionId": "f760daca-17af-49aa-a9cc-318f1e201206"
 }

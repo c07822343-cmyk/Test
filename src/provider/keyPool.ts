@@ -47,6 +47,8 @@ export interface AcquireOptions {
   priority?: number;
   taskId?: string | null;
   purpose?: string;
+  /** Restrict the grant to one key (health checks). Still subject to that key's ceiling and cooldown. */
+  keyId?: string;
 }
 
 export interface KeyPoolOptions {
@@ -90,6 +92,7 @@ interface Waiter {
   model: string;
   taskId: string | null;
   purpose?: string;
+  keyId?: string;
   /** Present for in-process callers parked in acquire(). */
   local?: { resolve(l: Lease): void; reject(e: Error): void; deadline: number; signal?: AbortSignal };
 }
@@ -306,7 +309,7 @@ export class KeyPool {
       const grants = new Map<string, Lease>();
       const hints = new Map<string, LeaseDecision & { granted: false }>();
       for (const w of this.#ordered()) {
-        const compatible = snaps.filter((k) => this.#compatible(k, w.model));
+        const compatible = snaps.filter((k) => this.#compatible(k, w.model) && (!w.keyId || k.id === w.keyId));
         const eligible = compatible.filter((k) => k.cooldownRemainingMs === 0 && k.windowCount < k.ceiling && k.inflight < k.maxInflight);
         if (eligible.length === 0) {
           if (isTarget(w)) {
@@ -395,7 +398,7 @@ export class KeyPool {
     } else {
       this.#waiters.set(opts.requesterId, {
         requesterId: opts.requesterId, priority: opts.priority ?? 50, firstSeen: now, lastSeen: now, seq: this.#seq++,
-        model: opts.model, taskId: opts.taskId ?? null, purpose: opts.purpose,
+        model: opts.model, taskId: opts.taskId ?? null, purpose: opts.purpose, keyId: opts.keyId,
       });
     }
     const { grants, hints } = await this.#grantPass((w) => w.requesterId === opts.requesterId, opts.requesterId);
@@ -418,7 +421,7 @@ export class KeyPool {
       const requesterId = this.#waiters.has(opts.requesterId) ? `${opts.requesterId}#${this.#seq}` : opts.requesterId;
       const waiter: Waiter = {
         requesterId, priority: opts.priority ?? 50, firstSeen: now, lastSeen: now, seq: this.#seq++,
-        model: opts.model, taskId: opts.taskId ?? null, purpose: opts.purpose,
+        model: opts.model, taskId: opts.taskId ?? null, purpose: opts.purpose, keyId: opts.keyId,
         local: { resolve, reject, deadline: now + opts.maxWaitMs, signal: opts.signal },
       };
       this.#waiters.set(requesterId, waiter);

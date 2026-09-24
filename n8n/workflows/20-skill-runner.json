@@ -1,0 +1,171 @@
+{
+  "id": "apxWf20SkillRunr",
+  "name": "ApexWeb 20 — Skill Runner",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "c21a3c3e-8e64-4f22-a182-927699f2136d",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ],
+      "parameters": {
+        "content": "## 20 · Skill Runner\nEvery skill in the registry is callable. POST `/webhook/apexweb/skill` with `{ \"skill\": \"website-audit\", \"mission\": \"...\", \"project_id\"?, \"agent_type\"? }`: the skill is loaded into a compatible specialist and executed through the normal pipeline (key pool, limiter, validation).",
+        "width": 560,
+        "height": 200,
+        "color": 5
+      }
+    },
+    {
+      "id": "e3bc9dd6-43c8-487f-abe4-c609dcb7eed6",
+      "name": "SKILLS — Run Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "9b674499-5978-4277-a6be-c0a91768b61e",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/skill",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "2ebf1f00-c326-49d4-a7a7-8bc7f3824982",
+      "name": "SKILLS — Load Skill Into Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/skills/' + encodeURIComponent($json.body.skill) + '/run' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ mission: $json.body.mission, project_id: $json.body.project_id ?? undefined, agent_type: $json.body.agent_type ?? undefined, priority_class: $json.body.priority_class ?? undefined }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "bb957c39-2fbf-45d7-ab6f-2d30260a7b62",
+      "name": "ROUTER — Wake Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "SKILLS — Run Request": {
+      "main": [
+        [
+          {
+            "node": "SKILLS — Load Skill Into Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SKILLS — Load Skill Into Agent": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagskills0000",
+      "name": "skills"
+    }
+  ],
+  "versionId": "19aa804c-d586-4665-abe6-d2409acf2280"
+}

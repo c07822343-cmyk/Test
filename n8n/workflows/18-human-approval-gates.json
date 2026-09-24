@@ -1,0 +1,379 @@
+{
+  "id": "apxWf18Approvals",
+  "name": "ApexWeb 18 — Human Approval Gates",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "d30c51c4-69c0-49f8-a523-bfcfa2ed08b5",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -360
+      ],
+      "parameters": {
+        "content": "## 18 · Human Approval Gates\nYou stay in control. Configurable per project (assist / semi-autonomous / autopilot): plan approval (dry run), major redesign, final handoff, irreversible repository operations (rollback), external publishing.\n\nPOST `/webhook/apexweb/approval` with `{ \"approval_id\", \"decision\": \"approve\"|\"reject\", \"note\"? }`. Every 5 minutes pending approvals are collected so you can route them to Slack/email.",
+        "width": 600,
+        "height": 260,
+        "color": 3
+      }
+    },
+    {
+      "id": "9ff6ccc3-212e-46e9-a863-f62f07b732b4",
+      "name": "APPROVAL — Decision Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6ab5f75e-d175-496e-a81d-562415f621fc",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/approval",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "81cca3f6-90c1-4fd2-a54f-b5a42ba88a3a",
+      "name": "APPROVAL — Valid Decision?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bc9d574a-2bbe-4092-a408-5472e8cf04b5",
+              "leftValue": "={{ ['approve', 'reject'].includes($json.body?.decision) && typeof $json.body?.approval_id === 'string' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d49251c8-bd16-4fc2-a8bb-8c6331943f34",
+      "name": "APPROVAL — Apply Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/approvals/' + $json.body.approval_id + '/' + $json.body.decision }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ note: $json.body.note ?? undefined }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "7ca34ca6-c32e-4665-aba2-4f6554cdba8c",
+      "name": "ROUTER — Wake Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        -60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "d55c411e-702c-4c4b-a8c8-e481a4cb299d",
+      "name": "APPROVAL — Invalid Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        120
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ error: 'approval_id and decision (approve|reject) are required' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b516acb4-a62e-46d1-a01d-d91dc889339c",
+      "name": "APPROVAL — Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        320
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b9fc4d88-7070-46c2-ae11-7ff5e5f2a4b6",
+      "name": "APPROVAL — List Pending Approvals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        320
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/approvals?status=pending' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "8b1f8097-76ce-4fd2-ae41-43dc6e573340",
+      "name": "APPROVAL — Anything Pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3ad0e776-3e15-40f6-a5b1-e838b1e89381",
+              "leftValue": "={{ ($json.approvals ?? []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "ce672d23-d8a2-475a-adf6-9bcffbe60eef",
+      "name": "APPROVAL — Notify Approver",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        280
+      ],
+      "parameters": {},
+      "notes": "Attach Slack / email here: each pending approval has an id, gate and title",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "APPROVAL — Decision Received": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — Valid Decision?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — Valid Decision?": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — Apply Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "APPROVAL — Invalid Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — Apply Decision": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — List Pending Approvals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — List Pending Approvals": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — Anything Pending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — Anything Pending?": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — Notify Approver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagapprovals0",
+      "name": "approvals"
+    }
+  ],
+  "versionId": "4c48689c-747b-4f8e-a8a9-82b0a5dec90e"
+}

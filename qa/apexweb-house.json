@@ -1,0 +1,31 @@
+{
+  "checks": [
+    {
+      "id": "QA-VIEWPORT",
+      "category": "responsiveness",
+      "criterion": "Every page declares a responsive viewport meta tag",
+      "type": "regex_present",
+      "value": "<meta[^>]+name=[\"']viewport[\"']",
+      "files": "*.html",
+      "scope": "every"
+    },
+    {
+      "id": "QA-CHARSET",
+      "category": "technical_quality",
+      "criterion": "Every page declares its character encoding",
+      "type": "regex_present",
+      "value": "<meta[^>]+charset",
+      "files": "*.html",
+      "scope": "every"
+    },
+    {
+      "id": "QA-NO-FILLER",
+      "category": "content_completeness",
+      "criterion": "No lorem ipsum filler text",
+      "type": "text_absent",
+      "value": "lorem ipsum",
+      "files": "*.html",
+      "scope": "every"
+    }
+  ]
+}

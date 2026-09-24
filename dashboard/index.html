@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApexWeb OS</title>
+<style>
+:root{--bg:#f6f5f1;--panel:#fff;--ink:#17202a;--muted:#5b6670;--line:#e1e0da;--accent:#0b5d7a;--accent-ink:#fff;--ok:#1f7a4d;--warn:#a15c00;--err:#b3261e;--run:#0b5d7a;--wait:#6b6f76;--chip:#eef1f3;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111416;--panel:#191d20;--ink:#e7eaec;--muted:#9aa4ac;--line:#2a3035;--accent:#5fb3d0;--accent-ink:#0b1214;--ok:#5cc28f;--warn:#e0a24a;--err:#ef7a70;--run:#5fb3d0;--wait:#8b9299;--chip:#232a2f}}
+:root[data-theme="dark"]{--bg:#111416;--panel:#191d20;--ink:#e7eaec;--muted:#9aa4ac;--line:#2a3035;--accent:#5fb3d0;--accent-ink:#0b1214;--ok:#5cc28f;--warn:#e0a24a;--err:#ef7a70;--run:#5fb3d0;--wait:#8b9299;--chip:#232a2f}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+nav.side{border-right:1px solid var(--line);padding:16px 12px;background:var(--panel);position:sticky;top:0;height:100vh;overflow:auto}
+.brand{font-weight:700;letter-spacing:.2px;margin:0 8px 16px}.brand small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+nav.side button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--ink)}
+nav.side button[aria-current="page"]{background:var(--chip);font-weight:600}
+main{padding:20px 24px;min-width:0}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}h3{font-size:14px;margin:12px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);padding:6px 12px;border-radius:6px;cursor:pointer;min-height:34px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,nav.side button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:12.5px}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--chip);font-size:12px;white-space:nowrap}
+.s-COMPLETED,.s-APPROVED,.s-ok,.s-healthy{color:var(--ok)}.s-RUNNING,.s-ASSIGNED,.s-REVIEW,.s-progress{color:var(--run)}
+.s-FAILED,.s-BLOCKED,.s-error,.s-disabled{color:var(--err)}.s-RETRYING,.s-warning,.s-cooldown,.s-degraded,.s-NEEDS_ATTENTION,.s-AWAITING_APPROVAL{color:var(--warn)}
+.s-WAITING,.s-QUEUED,.s-CANCELLED,.s-exhausted{color:var(--wait)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
+.chat{display:flex;flex-direction:column;height:calc(100vh - 150px);min-height:420px}
+.msgs{flex:1;overflow:auto;padding:4px}
+.msg{max-width:820px;margin:0 0 12px;white-space:pre-wrap}.msg .who{font-size:12px;color:var(--muted);margin-bottom:2px}
+.msg.user .body{background:var(--chip);display:inline-block;padding:8px 12px;border-radius:8px}
+.composer{display:flex;gap:8px;border-top:1px solid var(--line);padding-top:10px}.composer textarea{flex:1;min-height:44px;max-height:160px;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--panel)}
+.bar{font-family:var(--mono);white-space:pre}
+.stages{display:flex;gap:2px;margin:10px 0}.stages span{flex:1;height:8px;background:var(--line);border-radius:2px}.stages span.done{background:var(--ok)}.stages span.now{background:var(--accent)}
+.stage-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.dag{display:flex;gap:14px;overflow:auto;padding-bottom:6px}.dag .col{min-width:190px;display:flex;flex-direction:column;gap:8px}
+.node{border:1px solid var(--line);border-left:4px solid var(--wait);border-radius:6px;padding:6px 8px;font-size:12.5px;background:var(--panel);cursor:pointer}
+.node.COMPLETED{border-left-color:var(--ok)}.node.RUNNING,.node.ASSIGNED,.node.REVIEW{border-left-color:var(--run)}.node.FAILED,.node.BLOCKED{border-left-color:var(--err)}.node.RETRYING{border-left-color:var(--warn)}
+.feed{max-height:70vh;overflow:auto}.feed .item{display:grid;grid-template-columns:78px 1fr;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}.feed .agent{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+dialog{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);max-width:min(900px,94vw);width:100%}
+pre{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:12px;background:var(--chip);padding:10px;border-radius:6px;max-height:60vh;overflow:auto}
+.login{max-width:420px;margin:15vh auto}.login input{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin:8px 0;background:var(--panel)}
+@media (max-width:760px){.app{grid-template-columns:1fr}nav.side{position:static;height:auto;display:flex;overflow-x:auto;gap:4px;padding:8px}nav.side button{width:auto;white-space:nowrap}.brand{display:none}main{padding:12px 16px}}
+</style>
+</head>
+<body>
+<div id="login" class="login panel" hidden>
+  <h1>ApexWeb OS</h1>
+  <p class="muted">Enter the API token (APEXWEB_API_TOKEN). It stays in this browser tab only.</p>
+  <label for="tok">API token</label>
+  <input id="tok" type="password" autocomplete="off">
+  <button class="btn primary" id="tokbtn">Sign in</button>
+  <p id="loginerr" class="s-error"></p>
+</div>
+<div class="app" id="app" hidden>
+  <nav class="side" aria-label="Sections">
+    <div class="brand">ApexWeb OS<small>Autonomous agency</small></div>
+    <button data-view="chat">Main Agent</button>
+    <button data-view="projects">Projects</button>
+    <button data-view="activity">Activity</button>
+    <button data-view="approvals">Approvals</button>
+    <button data-view="keys">NVIDIA keys & usage</button>
+    <button data-view="skills">Skills</button>
+    <button data-view="knowledge">Knowledge</button>
+    <button data-view="workers">Workers</button>
+  </nav>
+  <main id="view"></main>
+</div>
+<dialog id="dlg"><div class="row" style="justify-content:space-between"><h2 id="dlgtitle"></h2><button class="btn" onclick="dlg.close()">Close</button></div><div id="dlgbody"></div></dialog>
+<script>
+const STAGES=['INTAKE','RESEARCH','PLANNING','DESIGN','DEVELOPMENT','CONTENT','INTEGRATION','TESTING','QA','REVISION','FINAL_REVIEW','READY_FOR_HANDOFF','COMPLETED'];
+let token=null;try{token=sessionStorage.getItem('apx_token')}catch{}
+let current={view:'chat',project:null};let timers=[];let feedAbort=null;
+const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json',...(opts.headers||{})}});if(r.status===401){signOut();throw new Error('unauthorized')}const t=await r.text();let j;try{j=JSON.parse(t)}catch{j=t}if(!r.ok)throw new Error(j.message||j.error||r.status);return j}
+function signOut(){try{sessionStorage.removeItem('apx_token')}catch{}token=null;$('#app').hidden=true;$('#login').hidden=false}
+$('#tokbtn').onclick=async()=>{token=$('#tok').value.trim();try{await api('/v1/metrics');try{sessionStorage.setItem('apx_token',token)}catch{};start()}catch(e){$('#loginerr').textContent='Sign-in failed: '+e.message}};
+function clearTimers(){timers.forEach(clearInterval);timers=[];if(feedAbort){feedAbort.abort();feedAbort=null}}
+function every(fn,ms){fn();timers.push(setInterval(fn,ms))}
+async function checkKeys(){modal('Key check','<p class="muted">Checking each key (one leased request per key)…</p>');try{const {results}=await api('/v1/keys/check',{method:'POST',body:'{}'});modal('Key check',`<table><thead><tr><th>Key</th><th>Result</th><th>Detail</th></tr></thead><tbody>${results.map(r=>`<tr><td class="mono">${esc(r.key)} ${esc(r.masked)}</td><td class="${r.ok?'s-ok':'s-error'}">${r.ok?'OK':'FAIL'}</td><td>${r.ok?`${r.models_visible} models visible · ${r.latency_ms}ms${r.registry_models_missing.length?` · not visible: ${esc(r.registry_models_missing.join(', '))}`:''}`:esc(`${r.http_status??'no response'} ${r.error??''}`)}</td></tr>`).join('')}</tbody></table>`)}catch(e){modal('Key check',`<p class="s-error">${esc(e.message)}</p>`)}}
+function show(view,project){clearTimers();current.view=view;if(project!==undefined)current.project=project;document.querySelectorAll('nav.side button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));(VIEWS[view]||VIEWS.chat)()}
+document.querySelectorAll('nav.side button').forEach(b=>b.onclick=()=>show(b.dataset.view));
+function modal(title,html){$('#dlgtitle').textContent=title;$('#dlgbody').innerHTML=html;if(!$('#dlg').open)$('#dlg').showModal()}
+const bar=(u,c,w=23)=>{const f=c>0?Math.round(Math.min(u,c)/c*w):0;return '█'.repeat(f)+'░'.repeat(w-f)};
+
+const VIEWS={
+async chat(){
+  const projects=(await api('/v1/projects')).projects;
+  $('#view').innerHTML=`<div class="row" style="justify-content:space-between"><div><h1>Main Agent</h1><p class="muted">Describe what you need in plain language, or use commands (<span class="mono">/help</span>).</p></div>
+  <label>Project <select id="projsel"><option value="">— new work / all projects —</option>${projects.map(p=>`<option value="${esc(p.id)}" ${p.id===current.project?'selected':''}>${esc(p.name)} (${esc(p.status)})</option>`).join('')}</select></label></div>
+  <div class="panel chat"><div class="msgs" id="msgs" aria-live="polite"></div>
+  <form class="composer" id="composer"><label for="msgin" class="muted" hidden>Message</label><textarea id="msgin" placeholder="e.g. Create a premium website for a local HVAC company." required></textarea><button class="btn primary">Send</button></form></div>`;
+  $('#projsel').onchange=e=>{current.project=e.target.value||null;loadMsgs()};
+  $('#composer').onsubmit=async e=>{e.preventDefault();const m=$('#msgin').value.trim();if(!m)return;$('#msgin').value='';appendMsg('user',m);try{const r=await api('/v1/chat',{method:'POST',body:JSON.stringify({message:m,project_id:current.project})});if(r.project){current.project=r.project.id}appendMsg('main_agent',r.reply)}catch(err){appendMsg('system','Error: '+err.message)}};
+  $('#msgin').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#composer').requestSubmit()}};
+  every(loadMsgs,4000);
+},
+async projects(){
+  if(current.project)return VIEWS.project();
+  every(async()=>{const {projects}=await api('/v1/projects');$('#view').innerHTML=`<h1>Projects</h1><div class="panel"><table><thead><tr><th>Project</th><th>Status</th><th>Progress</th><th>Created</th></tr></thead><tbody>${projects.map(p=>`<tr><td><a href="#" data-p="${esc(p.id)}">${esc(p.name)}</a><div class="muted mono">${esc(p.id)} · ${esc(p.kind)}</div></td><td class="s-${esc(p.status)}">${esc(p.status)}${p.paused?' (paused)':''}</td><td class="bar">${bar(p.progress.completed,p.progress.total||1,16)} ${p.progress.completed}/${p.progress.total}</td><td class="muted">${new Date(p.created_at).toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No projects yet.</td></tr>'}</tbody></table></div>`;document.querySelectorAll('[data-p]').forEach(a=>a.onclick=e=>{e.preventDefault();current.project=a.dataset.p;VIEWS.project()})},5000);
+},
+async project(){
+  clearTimers();const id=current.project;
+  const render=async()=>{
+    const [d,graph,approvals]=await Promise.all([api('/v1/projects/'+id),api('/v1/projects/'+id+'/graph'),api('/v1/approvals?project_id='+id+'&status=pending')]);
+    const p=d.project;const si=STAGES.indexOf(p.stage);
+    const levels=layer(graph.nodes,graph.edges);
+    const card=p.scorecard?.totals;
+    $('#view').innerHTML=`<div class="row" style="justify-content:space-between"><div><a href="#" id="back">← Projects</a><h1>${esc(p.name)}</h1><div class="muted mono">${esc(p.id)} · ${esc(p.kind)} · <span class="s-${esc(p.status)}">${esc(p.status)}</span>${p.paused?' · paused':''}</div></div>
+    <div class="row"><label>Mode <select id="mode">${['assist','semi','autopilot'].map(m=>`<option ${m===p.mode?'selected':''}>${m}</option>`).join('')}</select></label>
+    <button class="btn" data-a="pause">Pause</button><button class="btn" data-a="resume">Resume</button><button class="btn" data-a="cancel">Cancel</button><button class="btn" data-a="approve">Approve handoff</button><button class="btn" id="links">Preview / download</button></div></div>
+    <div class="panel"><div class="row" style="justify-content:space-between"><strong>Stage: ${esc(p.stage.replace(/_/g,' '))}</strong><span class="muted">${d.progress.completed}/${d.progress.total} tasks · ${d.progress.active} active · ${d.progress.problems} need attention</span></div>
+    <div class="stages" aria-hidden="true">${STAGES.map((s,i)=>`<span class="${i<si?'done':i===si?'now':''}" title="${s}"></span>`).join('')}</div><div class="stage-labels"><span>Intake</span><span>Development</span><span>QA</span><span>Completed</span></div></div>
+    ${approvals.approvals.length?`<div class="panel"><h2>Waiting for your approval</h2>${approvals.approvals.map(a=>`<div class="row" style="justify-content:space-between;padding:4px 0"><span>${esc(a.title)} <span class="chip">${esc(a.gate)}</span></span><span class="row"><button class="btn primary" data-apr="${esc(a.id)}" data-d="approve">Approve</button><button class="btn" data-apr="${esc(a.id)}" data-d="reject">Reject</button>${a.detail?.agents?`<button class="btn" data-dry="${esc(a.id)}">View dry run</button>`:''}</span></div>`).join('')}</div>`:''}
+    <div class="panel"><h2>Task graph</h2><div class="dag">${levels.map(col=>`<div class="col">${col.map(n=>`<div class="node ${esc(n.status)}" data-t="${esc(n.id)}" title="${esc(n.title)}"><strong>${esc(n.agent_name)}</strong><div>${esc(n.title)}</div><div class="muted">${esc(n.status)}${n.revision?` · rev ${n.revision}`:''}${n.attempt>1?` · attempt ${n.attempt}`:''}${n.nvidia_key?` · ${esc(n.nvidia_key)}`:''}</div></div>`).join('')}</div>`).join('')}</div></div>
+    <div class="grid2"><div class="panel"><h2>Scorecard</h2>${card?`<p><span class="s-ok">${card.passed} passed</span> · <span class="s-error">${card.failed} failed</span> · ${card.not_evaluated} not evaluated</p><table>${p.scorecard.criteria.map(c=>`<tr><td class="${c.passed===null?'muted':c.passed?'s-ok':'s-error'}">${c.passed===null?'—':c.passed?'PASS':'FAIL'}</td><td>${esc(c.id)}</td><td>${esc(c.criterion)}<div class="muted">${esc(c.evidence)}</div></td></tr>`).join('')}</table>`:'<p class="muted">Computed at assembly.</p>'}<button class="btn" id="rescore">Recompute scorecard</button></div>
+    <div class="panel"><h2>Blueprint</h2>${p.blueprint?`<p>${esc(p.blueprint.objective)}</p><h3>Pages</h3><p>${p.blueprint.pages.map(x=>esc(x.path)).join(', ')}</p><h3>Requirements</h3><ul>${p.blueprint.requirements.map(r=>`<li>${esc(r.id)} ${esc(r.text)}</li>`).join('')}</ul><h3>Open questions</h3><ul>${p.blueprint.open_questions.map(q=>`<li>${esc(q)}</li>`).join('')||'<li class="muted">None</li>'}</ul>`:'<p class="muted">Not written yet.</p>'}<h3>Skill chain</h3><p>${(p.skill_chain||[]).map(c=>`<span class="chip" title="${esc(c.reason)}">${esc(c.skill)}</span>`).join(' ')||'<span class="muted">Not selected yet.</span>'}</p></div></div>
+    <div class="panel"><h2>Tasks</h2><table><thead><tr><th>Task</th><th>Status</th><th>Stage</th><th>Model / key</th><th>Actions</th></tr></thead><tbody>${d.tasks.filter(t=>t.kind!=='root').map(t=>`<tr><td><a href="#" data-t="${esc(t.task_id)}">${esc(t.title)}</a><div class="muted">${esc(t.agent_type)} · ${esc(t.kind)}${t.skills?.length?` · ${t.skills.length} skills`:''}</div></td><td class="s-${esc(t.status)}">${esc(t.status)}${t.revision?` (rev ${t.revision})`:''}</td><td class="muted">${esc(t.stage||'')}</td><td class="mono">${esc(t.assigned_model||'')}<br>${esc(t.assigned_key||'')}</td><td class="row">${['FAILED','BLOCKED','CANCELLED','RETRYING'].includes(t.status)?`<button class="btn" data-ta="retry" data-id="${esc(t.task_id)}">Retry</button><button class="btn" data-ta="override" data-id="${esc(t.task_id)}">Override</button>`:''}${!['COMPLETED','FAILED','CANCELLED'].includes(t.status)?`<button class="btn" data-ta="cancel" data-id="${esc(t.task_id)}">Cancel</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
+    $('#back').onclick=e=>{e.preventDefault();current.project=null;show('projects')};
+    $('#mode').onchange=async e=>{await api('/v1/projects/'+id+'/mode',{method:'POST',body:JSON.stringify({mode:e.target.value})});render()};
+    document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{try{await api('/v1/projects/'+id+'/'+b.dataset.a,{method:'POST',body:'{}'})}catch(err){alert(err.message)}render()});
+    document.querySelectorAll('[data-apr]').forEach(b=>b.onclick=async()=>{try{await api('/v1/approvals/'+b.dataset.apr+'/'+b.dataset.d,{method:'POST',body:'{}'})}catch(err){alert(err.message)}render()});
+    document.querySelectorAll('[data-dry]').forEach(b=>b.onclick=()=>{const a=approvals.approvals.find(x=>x.id===b.dataset.dry);modal('Dry run',`<pre>${esc(JSON.stringify(a.detail,null,2))}</pre>`)});
+    document.querySelectorAll('[data-t]').forEach(n=>n.onclick=e=>{e.preventDefault();inspectTask(n.dataset.t)});
+    document.querySelectorAll('[data-ta]').forEach(b=>b.onclick=async()=>{const a=b.dataset.ta;let body='{}';if(a==='override'){const summary=prompt('Override result summary');if(!summary)return;body=JSON.stringify({summary})}try{await api('/v1/tasks/'+b.dataset.id+'/'+a,{method:'POST',body})}catch(err){alert(err.message)}render()});
+    $('#rescore').onclick=async()=>{$('#rescore').textContent='Computing…';await api('/v1/projects/'+id+'/scorecard',{method:'POST',body:'{}'});render()};
+    $('#links').onclick=async()=>{const l=await api('/v1/projects/'+id+'/links');modal('Preview & package',`<p><a href="${esc(l.preview)}" target="_blank" rel="noopener">Open site preview</a></p><p><a href="${esc(l.package)}">Download package (.tar.gz)</a></p><p class="muted">Links expire ${esc(l.expires_at)}.</p>`)};
+  };
+  every(render,5000);
+},
+async activity(){
+  $('#view').innerHTML=`<h1>Live agent activity</h1><p class="muted">Every line is a recorded backend event.</p><div class="panel feed" id="feed" aria-live="polite"></div>`;
+  feedAbort=new AbortController();const q=current.project?'?project_id='+encodeURIComponent(current.project):'';
+  try{const r=await fetch('/v1/activity/stream'+q,{headers:{Authorization:'Bearer '+token},signal:feedAbort.signal});const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
+    for(;;){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;while((i=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,i);buf=buf.slice(i+2);if(!chunk.startsWith('data: '))continue;const it=JSON.parse(chunk.slice(6));const el=document.createElement('div');el.className='item';el.innerHTML=`<span class="muted mono">${new Date(it.at).toLocaleTimeString()}</span><span><span class="agent s-${esc(it.severity)}">${esc(it.agent)}</span><br>${esc(it.headline)}</span>`;const f=$('#feed');if(!f)return;f.appendChild(el);f.scrollTop=f.scrollHeight}}}catch(e){if(e.name!=='AbortError'){const f=$('#feed');if(f)f.innerHTML+=`<p class="s-error">Stream ended: ${esc(e.message)}</p>`}}
+},
+async approvals(){every(async()=>{const {approvals}=await api('/v1/approvals');$('#view').innerHTML=`<h1>Approvals</h1><div class="panel"><table><thead><tr><th>Gate</th><th>Title</th><th>Status</th><th></th></tr></thead><tbody>${approvals.map(a=>`<tr><td><span class="chip">${esc(a.gate)}</span></td><td>${esc(a.title)}<div class="muted mono">${esc(a.project_id)}</div></td><td class="s-${a.status==='pending'?'warning':a.status==='approved'?'ok':'error'}">${esc(a.status)}</td><td class="row">${a.status==='pending'?`<button class="btn primary" data-apr="${esc(a.id)}" data-d="approve">Approve</button><button class="btn" data-apr="${esc(a.id)}" data-d="reject">Reject</button>`:esc(a.decided_by||'')}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No approvals.</td></tr>'}</tbody></table></div>`;document.querySelectorAll('[data-apr]').forEach(b=>b.onclick=async()=>{await api('/v1/approvals/'+b.dataset.apr+'/'+b.dataset.d,{method:'POST',body:'{}'});VIEWS.approvals()})},5000)},
+async keys(){every(async()=>{const [m,u]=await Promise.all([api('/v1/metrics'),api('/v1/usage')]);$('#view').innerHTML=`<div class="row" style="justify-content:space-between"><h1>NVIDIA keys & usage</h1><button class="btn" id="keycheck" title="One catalog request per key, through the limiter">Check keys</button></div><p class="muted">Rolling ${m.nvidia.window_ms/1000}s window, hard ceiling ${m.nvidia.ceiling_per_key} requests per key · strategy ${esc(m.nvidia.strategy)} · ${m.nvidia.requests_last_minute} req/min · p95 ${m.nvidia.latency_p95_ms??'-'}ms · error rate ${(m.nvidia.error_rate_5m*100).toFixed(1)}%</p>
+  <div class="panel">${m.nvidia.keys.map(k=>`<div style="margin-bottom:10px"><strong>${esc(k.id.replace('key_','KEY '))}</strong> <span class="chip s-${esc(k.health)}">${esc(k.health)}</span> <span class="muted mono">${esc(k.masked)} · ${esc(k.current_model||'')}</span><div class="bar">${bar(k.rpm_used,k.rpm_ceiling)} ${k.rpm_used}/${k.rpm_ceiling} RPM · inflight ${k.inflight} · p50 ${k.latency_p50_ms??'-'}ms · 429s ${k.recent_429}${k.cooldown_ms?` · cooldown ${Math.ceil(k.cooldown_ms/1000)}s`:''}</div></div>`).join('')}</div>
+  <div class="grid2"><div class="panel"><h2>Tasks</h2><p>${m.tasks.active} active · ${m.tasks.queued} queued · ${m.tasks.waiting} waiting · ${m.tasks.retrying} retrying · ${m.tasks.completed} completed · ${m.tasks.failed} failed · queue depth ${m.tasks.queue_depth}</p><p>Agents ${m.agents.active} active / ${m.agents.idle} idle</p></div>
+  <div class="panel"><h2>Usage</h2><p>${u.nvidia.requests} requests (${u.nvidia.failed} failed) · ${(u.nvidia.prompt_tokens+u.nvidia.completion_tokens).toLocaleString()} tokens</p><p>Avoided: ${u.avoided.model_calls_saved_by_cache} model calls (cache) · ${u.avoided.web_fetches_saved_by_cache} fetches · ${u.avoided.duplicate_tasks_prevented} duplicate tasks</p><table><thead><tr><th>Agent</th><th>Requests</th><th>Failed</th><th>Tokens</th></tr></thead><tbody>${u.by_agent.slice(0,15).map(a=>`<tr><td>${esc(a.agent)}</td><td>${a.requests}</td><td>${a.failed}</td><td>${a.tokens}</td></tr>`).join('')}</tbody></table></div></div>`;$('#keycheck').onclick=checkKeys},3000)},
+async skills(){const {skills,load}=await api('/v1/skills');$('#view').innerHTML=`<h1>Skills</h1><p class="muted">${skills.length} skills · registry folder skills/ ${load.errors.length?`· <span class="s-error">${load.errors.length} load error(s)</span>`:''}</p><div class="panel"><table><thead><tr><th>Skill</th><th>Category</th><th>Versions</th><th>Agents</th></tr></thead><tbody>${skills.map(s=>`<tr><td><strong>${esc(s.title)}</strong> <span class="mono muted">${esc(s.name)}@${esc(s.latest)}</span><div class="muted">${esc(s.when_to_use)}</div>${s.sub_skills.length?`<div class="muted">uses: ${s.sub_skills.map(esc).join(', ')}</div>`:''}</td><td>${esc(s.category)}</td><td>${s.versions.map(v=>`<label class="row"><input type="checkbox" ${v.enabled?'checked':''} data-sk="${esc(s.name)}" data-v="${esc(v.version)}"> ${esc(v.version)}</label>`).join('')}</td><td class="muted">${s.compatible_agents.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`;document.querySelectorAll('[data-sk]').forEach(c=>c.onchange=async()=>{await api(`/v1/skills/${c.dataset.sk}/${c.dataset.v}/${c.checked?'enable':'disable'}`,{method:'POST',body:'{}'})})},
+async knowledge(){const [a,c]=await Promise.all([api('/v1/knowledge?status=active'),api('/v1/knowledge?status=candidate')]);$('#view').innerHTML=`<h1>Knowledge base</h1><div class="panel"><h2>Candidates from retrospectives</h2><p class="muted">Nothing is promoted automatically.</p>${c.knowledge.map(k=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><span><strong>${esc(k.title)}</strong> <span class="chip">${esc(k.category)}</span><div>${esc(k.content)}</div><div class="muted mono">from ${esc(k.source_project)}</div></span><span class="row"><button class="btn primary" data-k="${esc(k.id)}" data-d="promote">Promote</button><button class="btn" data-k="${esc(k.id)}" data-d="reject">Reject</button></span></div>`).join('')||'<p class="muted">No candidates.</p>'}</div><div class="panel"><h2>Active global knowledge</h2><table>${a.knowledge.map(k=>`<tr><td><span class="chip">${esc(k.category)}</span></td><td><strong>${esc(k.title)}</strong><div class="muted">${esc(k.content)}</div></td></tr>`).join('')}</table></div>`;document.querySelectorAll('[data-k]').forEach(b=>b.onclick=async()=>{await api('/v1/knowledge/'+b.dataset.k+'/'+b.dataset.d,{method:'POST',body:'{}'});VIEWS.knowledge()})},
+async workers(){every(async()=>{const {workers,watchdog}=await api('/v1/workers');$('#view').innerHTML=`<h1>Workers & watchdog</h1><div class="panel"><table><thead><tr><th>Worker</th><th>Kind</th><th>Status</th><th>Last seen</th><th>In flight</th></tr></thead><tbody>${workers.map(w=>`<tr><td class="mono">${esc(w.id)}</td><td>${esc(w.kind)}</td><td class="s-${w.status==='alive'?'ok':'error'}">${esc(w.status)}</td><td>${w.seconds_since_seen}s ago</td><td>${w.inflight}</td></tr>`).join('')}</tbody></table></div><div class="panel"><h2>Last watchdog run</h2><pre>${esc(JSON.stringify(watchdog,null,2))}</pre></div>`},5000)},
+};
+function layer(nodes,edges){const deps=new Map(nodes.map(n=>[n.id,[...(n.layout_after||[])]]));edges.filter(e=>!e.sub).forEach(e=>deps.get(e.to)?.push(e.from));const lvl=new Map();const get=(id,seen=new Set())=>{if(lvl.has(id))return lvl.get(id);if(seen.has(id))return 0;seen.add(id);const n=nodes.find(x=>x.id===id);const ds=(deps.get(id)||[]).filter(d=>nodes.some(x=>x.id===d));let l=ds.length?Math.max(...ds.map(d=>get(d,seen)+1)):0;if(n?.parent&&n.kind==='subtask')l=Math.max(l,get(n.parent,seen)+1);lvl.set(id,l);return l};nodes.forEach(n=>get(n.id));const cols=[];nodes.forEach(n=>{(cols[lvl.get(n.id)]??=[]).push(n)});return cols.filter(Boolean)}
+async function inspectTask(id){const d=await api('/v1/tasks/'+id+'?include=raw');modal(d.task.title,`<p><span class="chip">${esc(d.agent.name)}</span> <span class="s-${esc(d.task.status)}">${esc(d.task.status)}</span> · attempt ${d.task.attempt} · revision ${d.task.revision} · ${esc(d.task.assigned_model||'')}</p><p>Skills: ${(d.task.skills||[]).map(esc).join(', ')||'none'}</p><h3>Summary</h3><p>${esc(d.task.outputs?.summary||'')}</p>${d.task.outputs?.review?`<h3>Review</h3><pre>${esc(JSON.stringify(d.task.outputs.review,null,2))}</pre>`:''}<h3>History</h3><table>${d.events.map(e=>`<tr><td class="muted mono">${new Date(e.at).toLocaleTimeString()}</td><td>${esc(e.type)}</td><td>${esc(e.from_status||'')} → ${esc(e.to_status||'')}</td><td class="muted">${esc(e.actor)}</td></tr>`).join('')}</table><h3>n8n executions</h3><p class="mono">${[...new Set(d.workflow_runs.map(r=>r.workflow+' #'+r.execution_id))].map(esc).join('<br>')||'—'}</p><h3>NVIDIA requests</h3><table>${d.nvidia_requests.map(r=>`<tr><td>${esc(r.key_id)}</td><td class="mono">${esc(r.model)}</td><td>${esc(r.status)}</td><td>${r.latency_ms??''}ms</td></tr>`).join('')}</table>${d.raw_output?`<h3>Raw output</h3><pre>${esc(String(d.raw_output.content).slice(0,20000))}</pre>`:''}`)}
+async function loadMsgs(){const box=$('#msgs');if(!box)return;const q=current.project?'?project_id='+encodeURIComponent(current.project):'';const {messages}=await api('/v1/messages'+q);box.innerHTML=messages.map(m=>`<div class="msg ${m.role}"><div class="who">${m.role==='user'?'You':m.role==='main_agent'?'Main Agent':'System'} · ${new Date(m.created_at).toLocaleTimeString()}</div><div class="body">${esc(m.content)}</div></div>`).join('');box.scrollTop=box.scrollHeight}
+function appendMsg(role,text){const box=$('#msgs');if(!box)return;box.insertAdjacentHTML('beforeend',`<div class="msg ${role}"><div class="who">${role==='user'?'You':role==='main_agent'?'Main Agent':'System'}</div><div class="body">${esc(text)}</div></div>`);box.scrollTop=box.scrollHeight}
+function start(){$('#login').hidden=true;$('#app').hidden=false;show('chat')}
+if(token)api('/v1/metrics').then(start).catch(()=>{$('#login').hidden=false});else $('#login').hidden=false;
+</script>
+</body>
+</html>

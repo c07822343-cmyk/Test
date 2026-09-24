@@ -11,12 +11,12 @@
       "typeVersion": 1,
       "position": [
         -40,
-        -340
+        -380
       ],
       "parameters": {
-        "content": "## 02 · Main Agent Orchestrator\nUSER REQUEST → **MAIN AGENT** → TASK PLAN → TASK QUEUE.\n\n1. Interpret the request (NVIDIA via Key Manager)\n2. Ask the user only if genuinely blocked\n3. Task Decomposer adapts the ApexWeb workflow template into a validated dependency graph\n4. Enqueue the graph and wake the dispatcher.\n\nThe Main Agent never does specialist work itself.",
-        "width": 560,
-        "height": 260,
+        "content": "## 02 · Main Agent Orchestrator\nUSER → **MAIN AGENT** → BLUEPRINT → SKILL ENGINE → TASK PLANNER → TASK QUEUE.\n\n1. Interpret the request (NVIDIA via Key Manager)\n2. Ask the user only if genuinely blocked\n3. Write the project blueprint (source of truth)\n4. Select the skill chain (sub-skills, pinned versions)\n5. Adapt the workflow template into a validated, gated dependency graph with skills per task\n6. Enqueue (or wait for plan approval in assist / dry-run mode) and wake the dispatcher.\n\nThe Main Agent never does specialist work itself.",
+        "width": 620,
+        "height": 300,
         "color": 4
       }
     },
@@ -165,12 +165,100 @@
       "notesInFlow": true
     },
     {
+      "id": "abea8f1f-cce6-4370-a793-d2606b9f0e60",
+      "name": "MAIN — Write Project Blueprint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/blueprint' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Source of truth: pages, requirements, visual direction; refuses invented facts",
+      "notesInFlow": true
+    },
+    {
+      "id": "234a7ce3-d5b6-4398-a3e0-c4c4478828ad",
+      "name": "SKILLS — Select Skill Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/skills' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Skill Engine: chain + sub-skills, versions pinned",
+      "notesInFlow": true
+    },
+    {
       "id": "3e408a6a-dcc3-4baf-a7f7-1e65f8b07666",
       "name": "MAIN — Build Plan",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        960,
+        1440,
         60
       ],
       "parameters": {
@@ -205,7 +293,7 @@
         }
       },
       "onError": "continueErrorOutput",
-      "notes": "Task Decomposer + plan validation (registry, DAG, required stages, review gates)",
+      "notes": "Task Decomposer + validation + approval gates + skills per task + dry-run report",
       "notesInFlow": true
     },
     {
@@ -214,7 +302,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1680,
         60
       ],
       "parameters": {
@@ -252,13 +340,61 @@
       "notesInFlow": false
     },
     {
+      "id": "89f90927-149d-4078-a529-f20274bd8e2f",
+      "name": "APPROVAL — Plan Needs Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec4f5819-9faf-4c42-ab67-52f30ee92150",
+              "leftValue": "={{ !!$json.awaiting_approval }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "65219054-2f62-49d6-abaf-3aaba0c2b7e0",
+      "name": "APPROVAL — Dry Run Awaiting Approval",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        -40
+      ],
+      "parameters": {},
+      "notes": "Assist mode / dry run: execution starts when the user approves the plan",
+      "notesInFlow": true
+    },
+    {
       "id": "7f9cde07-c754-4ccf-ae15-189dbd97626a",
       "name": "ROUTER — Wake Dispatcher",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1440,
-        60
+        2160,
+        140
       ],
       "parameters": {
         "source": "database",
@@ -389,7 +525,43 @@
         ],
         [
           {
+            "node": "MAIN — Write Project Blueprint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Write Project Blueprint": {
+      "main": [
+        [
+          {
+            "node": "SKILLS — Select Skill Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Report Planning Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SKILLS — Select Skill Chain": {
+      "main": [
+        [
+          {
             "node": "MAIN — Build Plan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Report Planning Failure",
             "type": "main",
             "index": 0
           }
@@ -418,7 +590,7 @@
       "main": [
         [
           {
-            "node": "ROUTER — Wake Dispatcher",
+            "node": "APPROVAL — Plan Needs Approval?",
             "type": "main",
             "index": 0
           }
@@ -426,6 +598,24 @@
         [
           {
             "node": "MAIN — Report Planning Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "APPROVAL — Plan Needs Approval?": {
+      "main": [
+        [
+          {
+            "node": "APPROVAL — Dry Run Awaiting Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
             "type": "main",
             "index": 0
           }
@@ -457,5 +647,5 @@
       "name": "main"
     }
   ],
-  "versionId": "818f08bb-4bc5-49df-a693-15a74a63ca78"
+  "versionId": "252153b3-3a53-4f83-a5ca-368fac71ad2c"
 }

@@ -197,8 +197,16 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   });
   app.get('/v1/projects/:id/graph', async (req: any) => {
     const tasks = await s.queue.listByProject(req.params.id);
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    // Layout hint for dynamically inserted fixes: draw them after the stage that spawned them.
+    const layoutAfter = (t: (typeof tasks)[number]): string[] => {
+      if (t.kind !== 'fix') return [];
+      if (t.inputs?.triage_task) return [t.inputs.triage_task];
+      const gate = byId.get(t.inputs?.qa_task);
+      return gate ? gate.dependencies.filter((d) => byId.get(d)?.kind !== 'fix') : [];
+    };
     return {
-      nodes: tasks.filter((t) => t.kind !== 'root').map((t) => ({ id: t.id, key: t.plan_key, agent: t.agent_type, agent_name: getAgent(t.agent_type).name, pipeline: getAgent(t.agent_type).pipeline, title: t.title, status: t.status, kind: t.kind, parent: t.parent_task_id, attempt: t.attempt, revision: t.revision, optional: t.optional, model: t.assigned_model, nvidia_key: t.assigned_key })),
+      nodes: tasks.filter((t) => t.kind !== 'root').map((t) => ({ id: t.id, layout_after: layoutAfter(t), key: t.plan_key, agent: t.agent_type, agent_name: getAgent(t.agent_type).name, pipeline: getAgent(t.agent_type).pipeline, title: t.title, status: t.status, kind: t.kind, parent: t.parent_task_id, attempt: t.attempt, revision: t.revision, optional: t.optional, model: t.assigned_model, nvidia_key: t.assigned_key })),
       edges: tasks.flatMap((t) => t.dependencies.map((d) => ({ from: d, to: t.id }))).concat(tasks.filter((t) => t.parent_task_id && t.kind === 'subtask').map((t) => ({ from: t.parent_task_id!, to: t.id, sub: true } as any))),
     };
   });
@@ -308,6 +316,7 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   // ------------------------------------------------------------ AGENCY OS
   app.get('/v1/commands', async () => ({ commands: COMMANDS }));
   app.get('/v1/templates', async () => ({ templates: templates().map((t) => ({ intent: t.intent, label: t.label, description: t.description, tasks: t.tasks.length, required: t.required, source: t.source })) }));
+  app.get('/v1/extensions', async () => ({ extensions: s.extensions }));
   app.get('/v1/skills', async () => ({ skills: s.skills.catalog(), load: s.extensions.skills }));
   app.get('/v1/skills/:name', async (req: any) => {
     const d = s.skills.resolve(req.params.name);
@@ -336,7 +345,6 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
       projectId = project.id;
     }
     const [task] = await s.mainAgent.extendProject(projectId, [{ key: 'skill', agent_type: agent, title: `${d.title}: ${body.mission.slice(0, 80)}`, mission: body.mission, depends_on: [], priority: 60, priority_class: body.priority_class, skills: [`${d.name}@${d.version}`] }], 'skill', 'user');
-    await s.db.query(`UPDATE tasks SET skills = (SELECT array_agg(DISTINCT x) FROM unnest(skills || $2::text[]) x) WHERE id = $1`, [task.id, [`${d.name}@${d.version}`]]);
     return { project_id: projectId, task_id: task.id, agent_type: agent, skill: `${d.name}@${d.version}` };
   });
 
@@ -425,6 +433,10 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   });
 
   // ------------------------------------------------------ KEYS / MODELS / AGENTS
+  app.post('/v1/keys/check', async () => {
+    await s.projects.audit('user', 'keys.check', 'nvidia_keys', null);
+    return { results: await s.provider.checkKeys() };
+  });
   app.get('/v1/keys', async () => ({ strategy: s.keyPool.strategyName, ceiling: s.config.nvidia.rpmPerKey, window_ms: s.config.nvidia.windowMs, waiting: s.keyPool.waitingCount, keys: await s.keyPool.snapshots() }));
   app.post('/v1/keys/:id/enable', async (req: any) => {
     await s.keyPool.setActive(req.params.id, true, null);

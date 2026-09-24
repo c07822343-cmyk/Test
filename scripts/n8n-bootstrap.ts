@@ -1,5 +1,5 @@
 // Imports the ApexWeb control plane into n8n: two header-auth credentials
-// (core API token, webhook secret) and the 16 generated workflows, then
+// (core API token, webhook secret) and the 20 generated workflows, then
 // publishes (activates) them. Secrets are written to a 0600 temp file only for
 // the duration of the import and never stored in workflow JSON.
 //

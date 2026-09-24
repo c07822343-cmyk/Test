@@ -6,7 +6,7 @@ import http from 'node:http';
 
 const port = Number(process.env.NIM_TEST_PORT ?? 18555);
 const nim = new NimTestServer();
-const reply = createScript({ rejectFirstBuild: true, rejectFirstQa: true });
+const reply = createScript({ rejectFirstBuild: true, rejectFirstQa: true, visualDefectAfterTriage: true });
 nim.behaviour = (call) => ({ reply: reply(call.body), delayMs: 150 + Math.floor(Math.random() * 350) });
 nim.catalog = [];
 const url = await nim.start();

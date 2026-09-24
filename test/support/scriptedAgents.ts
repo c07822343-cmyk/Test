@@ -11,6 +11,8 @@ export interface ScriptOptions {
   rejectFirstQa?: boolean;
   /** The triage fix still pushes the hero/CTA below the fold, so Visual QA's region checks must drive a refinement cycle. */
   visualDefectAfterTriage?: boolean;
+  /** Workflow intent the Main Agent's interpretation returns (default local_business_website). */
+  intent?: string;
 }
 
 const CSS = `:root{--ink:#14202b;--muted:#3d4b57;--paper:#fbfaf7;--accent:#0b5d7a;--accent-ink:#ffffff;--line:#d9dde0;--space-1:.5rem;--space-2:1rem;--space-3:1.5rem;--space-4:2.5rem;--space-5:4rem;--radius:6px;--font:"Source Sans 3",system-ui,sans-serif}
@@ -119,7 +121,7 @@ export function createScript(opts: ScriptOptions = {}) {
     if (system.includes('Classify the user message')) return JSON.stringify({ route: 'new_work', control_action: null });
     if (system.includes('Interpret the user request')) {
       return JSON.stringify({
-        intent: 'local_business_website', project_name: 'Local HVAC company website', summary: 'A premium website for a local HVAC company.', complexity: 'complex',
+        intent: opts.intent ?? 'local_business_website', project_name: 'Local HVAC company website', summary: 'A premium website for a local HVAC company.', complexity: 'complex',
         business: { name: null, type: 'HVAC contractor', location: null, existing_url: null }, audience: 'Homeowners needing heating/cooling service',
         goals: ['Generate service bookings and calls'], constraints: [], deliverables: ['Website'], urls: [], known_facts: ['The business is a local HVAC company'],
         needs_clarification: false, clarification_questions: [],

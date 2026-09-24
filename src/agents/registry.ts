@@ -401,7 +401,7 @@ const BUILTIN: AgentSpec[] = [
     name: 'Project Documentation Agent',
     department: 'operations',
     pipeline: 'content',
-    capability: 'summarization',
+    capability: 'copywriting',
     mission: 'Maintain project documentation: specification summary, changelog, decisions, open items and a client handoff guide.',
     instructions: [
       'Write docs/HANDOFF.md (what was built, how to deploy/edit, placeholders to replace, open items) and docs/CHANGELOG.md.',

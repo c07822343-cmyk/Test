@@ -6,6 +6,7 @@ import { CacheStore, TTL } from '../cache/cache.ts';
 import type { AppConfig } from '../config/env.ts';
 import type { Db } from '../db/pool.ts';
 import type { ProjectRepos } from '../devops/git.ts';
+import { extensionTool, runToolExtension } from '../extensions/tools.ts';
 import { analyzeFile, analyzeProject, checkAssetQuality, organizeAssets, type FileAnalysis } from '../files/intelligence.ts';
 import type { ArtifactStore } from '../memory/artifacts.ts';
 import type { MemoryStore } from '../memory/memory.ts';
@@ -319,8 +320,12 @@ export async function runTool(tool: ToolName, task: TaskRow, deps: ToolDeps): Pr
       const d = await deps.repos.diff(task.project_id);
       return { ...base, summary: { from: d.from, to: d.to, changed: d.changed, diff: d.diff.slice(0, 60_000) } };
     }
-    default:
-      return { ...base, ok: false, available: false, summary: `unknown tool ${tool}`, error: `unknown tool ${tool}` };
+    default: {
+      const ext = extensionTool(tool);
+      if (!ext) return { ...base, ok: false, available: false, summary: `unknown tool ${tool}`, error: `unknown tool ${tool}` };
+      const r = await runToolExtension(ext, { site, task: { id: task.id, project_id: task.project_id, agent_type: task.agent_type, title: task.title, mission: task.mission }, facts: await projectFacts(deps.memory, task.project_id) });
+      return { ...base, ...r };
+    }
   }
 }
 

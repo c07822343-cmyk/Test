@@ -1,0 +1,326 @@
+{
+  "id": "apxWf19Watchdog0",
+  "name": "ApexWeb 19 — Watchdog & Heartbeats",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "4610eff5-88d7-40c7-a00d-2d371bc978ea",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -320
+      ],
+      "parameters": {
+        "content": "## 19 · Watchdog & Heartbeats\nWorkers report heartbeats; tasks carry heartbeats during long steps. Every minute the watchdog detects stuck tasks, dead or disconnected workers, orphaned claims (lost executions) and expired leases, and recovers them safely through the retry path. Recoveries appear in the live activity feed.",
+        "width": 600,
+        "height": 220,
+        "color": 2
+      }
+    },
+    {
+      "id": "d0760f55-71e5-4bc5-a385-072ea5c173d1",
+      "name": "WATCHDOG — Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a20a2dda-88d1-4700-ac18-22dffa24d4bd",
+      "name": "WATCHDOG — Detect & Recover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/watchdog/run' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "e921cfc6-7955-4860-a351-6be8bc071177",
+      "name": "WATCHDOG — Summarise Recoveries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const r = $input.first().json.recovered ?? {};\nconst total = Object.entries(r).filter(([k]) => k !== \"cache_purged\").reduce((n, [, v]) => n + Number(v || 0), 0);\nreturn [{ json: { ...r, total } }];"
+      }
+    },
+    {
+      "id": "96cbc461-4a3f-4994-aa5c-bd20a14d56da",
+      "name": "WATCHDOG — Recovered Anything?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "20f7f7c1-767f-4326-aa06-0268a1a7e0ce",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "5e620056-668b-4b63-acb5-50d845060774",
+      "name": "WATCHDOG — Recovered Work",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -60
+      ],
+      "parameters": {},
+      "notes": "Stuck/orphaned work was returned to the retry path",
+      "notesInFlow": true
+    },
+    {
+      "id": "b5ac63b9-7fe6-4483-a353-8f192a337ddd",
+      "name": "WATCHDOG — All Healthy",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        80
+      ],
+      "parameters": {},
+      "notesInFlow": false
+    },
+    {
+      "id": "77192032-66a4-4c02-a0fd-e22add33fdfb",
+      "name": "ROUTER — Wake Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        -60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "6e692b15-0977-4c1e-aff6-6b6bb696aa06",
+      "name": "WATCHDOG — Worker Heartbeats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        220
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/workers' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "WATCHDOG — Every Minute": {
+      "main": [
+        [
+          {
+            "node": "WATCHDOG — Detect & Recover",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "WATCHDOG — Worker Heartbeats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WATCHDOG — Detect & Recover": {
+      "main": [
+        [
+          {
+            "node": "WATCHDOG — Summarise Recoveries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WATCHDOG — Summarise Recoveries": {
+      "main": [
+        [
+          {
+            "node": "WATCHDOG — Recovered Anything?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WATCHDOG — Recovered Anything?": {
+      "main": [
+        [
+          {
+            "node": "WATCHDOG — Recovered Work",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WATCHDOG — All Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WATCHDOG — Recovered Work": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagobservabil",
+      "name": "observability"
+    }
+  ],
+  "versionId": "ea1e0b05-c7fa-4908-a7fe-2bcabeb294b2"
+}

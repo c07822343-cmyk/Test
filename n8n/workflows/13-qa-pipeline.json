@@ -14,7 +14,7 @@
         -440
       ],
       "parameters": {
-        "content": "## 13 — QA Pipeline\nSPECIALIST AGENT execution, one execution per task.\n\n**Agents:** Responsive Design, Accessibility, Performance Engineer, QA Director (+ Link, Content Consistency checkers) and the Final QA / Release gate (rejection starts a bounded fix cycle).\n\nStart → pre-execution tools (real audits) → Model Router → Context Builder (only what this task needs) → Key Manager / 55 RPM limiter → NVIDIA call → structured-output review (schema, files, sub-agents, review gates) → next stage. Failures go to the Error / Retry Manager.",
+        "content": "## 13 — QA Pipeline\nSPECIALIST AGENT execution, one execution per task.\n\n**Agents:** Responsive Design, Accessibility, Performance Engineer, Bug Finder, Change Reviewer, QA Director (+ Link, Content Consistency checkers), the Main Agent's review triage and the Final QA / Release gate (rejection starts a bounded fix cycle).\n\nStart → pre-execution tools (real audits) → Model Router → Context Builder (only what this task needs) → Key Manager / 55 RPM limiter → NVIDIA call → structured-output review (schema, files, sub-agents, review gates) → next stage. Failures go to the Error / Retry Manager.",
         "width": 640,
         "height": 300,
         "color": 5
@@ -746,6 +746,41 @@
           "waitForSubWorkflow": false
         }
       }
+    },
+    {
+      "id": "f7d3c255-5701-406c-afd6-213d7e3a02bd",
+      "name": "CACHE — Reused Earlier Answer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1150,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "121ea521-1c31-43d0-a587-d424ccf50975",
+              "leftValue": "={{ $json.cached === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -840,7 +875,7 @@
       "main": [
         [
           {
-            "node": "KEYPOOL — Lease Request",
+            "node": "CACHE — Reused Earlier Answer?",
             "type": "main",
             "index": 0
           }
@@ -848,6 +883,24 @@
         [
           {
             "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CACHE — Reused Earlier Answer?": {
+      "main": [
+        [
+          {
+            "node": "REVIEW — Validate Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KEYPOOL — Lease Request",
             "type": "main",
             "index": 0
           }
@@ -1096,5 +1149,5 @@
       "name": "pipeline"
     }
   ],
-  "versionId": "5469f553-3388-44ef-a39b-f82fa1171485"
+  "versionId": "fd4cdacc-1232-40a6-a463-7da1677ef8fb"
 }

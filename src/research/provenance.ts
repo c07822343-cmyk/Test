@@ -75,14 +75,14 @@ export function verifyClaims(claims: ClaimInput[], sources: Map<string, { excerp
       const best = Math.max(0, ...ids.map((id) => support(c.statement, sources.get(id)!.excerpt ?? '')));
       if (ids.length === 0) {
         classification = 'UNVERIFIED';
-        reason = 'claimed as verified without a fetched source';
+        reason = reason ?? 'claimed as verified without a fetched source';
       } else if (best < 0.6) {
         classification = 'SOURCE_DERIVED';
         reason = `cited source only partially supports the statement (${Math.round(best * 100)}% term overlap)`;
       }
     } else if (classification === 'SOURCE_DERIVED' && ids.length === 0) {
       classification = 'INFERENCE';
-      reason = 'no fetched source cited';
+      reason = reason ?? 'no fetched source cited';
     }
     return { statement: String(c.statement).slice(0, 1000), classification, claimed_as: claimedAs, source_ids: ids, confidence: typeof c.confidence === 'number' ? c.confidence : null, downgrade_reason: reason };
   });

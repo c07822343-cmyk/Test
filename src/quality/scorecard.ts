@@ -8,6 +8,7 @@ import type { ArtifactStore } from '../memory/artifacts.ts';
 import { accessibilityAxe, performanceProbe, responsiveRender } from '../tools/browserChecks.ts';
 import { antiSlopScan, htmlPages, seoAudit, staticAudit } from '../tools/siteAudit.ts';
 import { bugScan, visualQa } from '../tools/visualQa.ts';
+import { evaluateQaCheck, qaChecks as extensionQaChecks } from '../extensions/qaChecks.ts';
 
 export const CATEGORIES = ['functionality', 'visual_quality', 'ux', 'responsiveness', 'accessibility', 'seo', 'performance', 'content_completeness', 'technical_quality', 'project_requirements'] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -146,6 +147,11 @@ export async function computeScorecard(db: Db, artifacts: ArtifactStore, project
       evidence = q ? q.evidence : 'not evaluated by Final QA';
     }
     add(r.id, 'project_requirements', r.text, passed, evidence, check.type === 'manual' ? 'final_qa_release' : `blueprint check: ${check.type}`);
+  }
+  // Operator-defined checklist items from qa/*.json extensions.
+  for (const q of extensionQaChecks()) {
+    const r = hasSite || q.type === 'file_exists' ? evaluateQaCheck(q, site) : { passed: null, evidence: 'no site files' };
+    add(q.id, q.category, q.criterion, r.passed, r.evidence, `qa extension: ${q.type}`);
   }
   const categories = Object.fromEntries(CATEGORIES.map((k) => [k, { passed: 0, failed: 0, not_evaluated: 0 }])) as Scorecard['categories'];
   for (const x of c) categories[x.category][x.passed === null ? 'not_evaluated' : x.passed ? 'passed' : 'failed']++;

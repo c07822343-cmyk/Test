@@ -47,6 +47,17 @@ export const TOOLS: ToolInfo[] = [
 
 export const TOOL_NAMES = TOOLS.map((t) => t.name);
 
+export const PERMISSIONS: Permission[] = ['web_fetch', 'web_search', 'site_audit', 'browser', 'image_analysis', 'file_read', 'asset_tools', 'git_read', 'security_scan', 'site_write', 'docs_write', 'orchestrate'];
+
+/** Adds an extension tool to the catalog. It must declare an existing permission, so profiles still decide who may run it. */
+export function registerTool(info: ToolInfo): void {
+  if (!/^[a-z][a-z0-9_]{2,40}$/.test(info.name)) throw new Error(`invalid tool name ${info.name}`);
+  if (TOOL_NAMES.includes(info.name)) throw new Error(`tool ${info.name} already exists`);
+  if (!PERMISSIONS.includes(info.permission)) throw new Error(`tool ${info.name} declares unknown permission ${info.permission}`);
+  TOOLS.push(info);
+  TOOL_NAMES.push(info.name);
+}
+
 export function toolInfo(name: string): ToolInfo | undefined {
   return TOOLS.find((t) => t.name === name);
 }

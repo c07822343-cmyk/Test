@@ -1,0 +1,110 @@
+# ApexWeb OS: Postgres + core API/dashboard + n8n control plane.
+#
+#   cp .env.example .env        # fill in secrets (see README "Setup")
+#   docker compose up -d        # n8n-init imports + publishes the workflows first
+#   docker compose --profile search up -d   # optional self-hosted web search
+#
+# Secrets come from .env (never committed). Nothing secret is written into
+# workflow JSON: n8n reads the core token and webhook secret from its own
+# encrypted credential store, imported once by n8n-init.
+
+x-n8n-env: &n8n-env
+  DB_TYPE: postgresdb
+  DB_POSTGRESDB_HOST: postgres
+  DB_POSTGRESDB_PORT: "5432"
+  DB_POSTGRESDB_DATABASE: n8n
+  DB_POSTGRESDB_USER: apexweb
+  DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+  N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
+  N8N_DIAGNOSTICS_ENABLED: "false"
+  N8N_PERSONALIZATION_ENABLED: "false"
+  N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+  N8N_TEMPLATES_ENABLED: "false"
+  N8N_RUNNERS_ENABLED: "true"
+  GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-UTC}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: apexweb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: apexweb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sql:/docker-entrypoint-initdb.d/10-n8n.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apexweb -d apexweb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  apexweb-core:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://apexweb:${POSTGRES_PASSWORD}@postgres:5432/apexweb
+      EXECUTION_DRIVER: ${EXECUTION_DRIVER:-n8n}
+      N8N_BASE_URL: http://n8n:5678
+      APEXWEB_HOST: 0.0.0.0
+      APEXWEB_PORT: "8080"
+      WORKER_ID: apexweb-core
+    ports:
+      - "${APEXWEB_PUBLISH_PORT:-8080}:8080"
+    volumes:
+      - coredata:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  n8n-init:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.40.5}
+    environment:
+      <<: *n8n-env
+      APEXWEB_API_TOKEN: ${APEXWEB_API_TOKEN:?set APEXWEB_API_TOKEN in .env}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?set N8N_WEBHOOK_SECRET in .env}
+      APEXWEB_CORE_URL: http://apexweb-core:8080
+      N8N_BIN: n8n
+    volumes:
+      - ./:/apexweb:ro
+    entrypoint: ["node", "--experimental-strip-types", "/apexweb/scripts/n8n-bootstrap.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.40.5}
+    restart: unless-stopped
+    environment:
+      <<: *n8n-env
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}
+    ports:
+      - "${N8N_PUBLISH_PORT:-5678}:5678"
+    volumes:
+      - n8ndata:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      n8n-init:
+        condition: service_completed_successfully
+
+  searxng:
+    profiles: ["search"]
+    image: docker.io/searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-in-env}
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+
+volumes:
+  pgdata:
+  coredata:
+  n8ndata:

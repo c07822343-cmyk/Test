@@ -1,0 +1,11 @@
+# Minimal SearXNG config for ApexWeb research (optional "search" profile).
+# JSON output must be enabled for the API; the secret comes from SEARXNG_SECRET.
+use_default_settings: true
+server:
+  limiter: false
+  image_proxy: false
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json

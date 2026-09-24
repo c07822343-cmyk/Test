@@ -69,7 +69,7 @@ export class HealthWeightedHeadroomStrategy implements KeySchedulingStrategy {
     return 0.45 * headroom + 0.25 * reliability + 0.15 * latency + 0.15 * concurrency - failurePenalty - degradedPenalty;
   }
 
-  rank(candidates: KeySnapshot[]): KeySnapshot[] {
+  rank(candidates: KeySnapshot[], _ctx?: SchedulingContext): KeySnapshot[] {
     return [...candidates].sort((a, b) => {
       const diff = this.score(b) - this.score(a);
       return Math.abs(diff) > 1e-9 ? diff : lruTiebreak(a, b);
@@ -85,7 +85,7 @@ export class WeightedLeastLoadedStrategy implements KeySchedulingStrategy {
     return (k.windowCount + 2 * k.inflight) * (1 + 2 * k.errorRate) + 5 * k.consecutiveFailures;
   }
 
-  rank(candidates: KeySnapshot[]): KeySnapshot[] {
+  rank(candidates: KeySnapshot[], _ctx?: SchedulingContext): KeySnapshot[] {
     return [...candidates].sort((a, b) => this.load(a) - this.load(b) || lruTiebreak(a, b));
   }
 }

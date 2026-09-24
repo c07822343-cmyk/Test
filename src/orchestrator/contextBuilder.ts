@@ -108,8 +108,8 @@ export class ContextBuilder {
     sections.push({
       title: 'TASK',
       priority: 100,
+      // No task id here: identical work must produce identical prompts so the response cache can reuse answers.
       body: json({
-        task_id: task.id,
         title: task.title,
         mission: task.mission,
         kind: task.kind,
@@ -121,7 +121,11 @@ export class ContextBuilder {
     sections.push({ title: 'PROJECT BRIEF', priority: 95, body: json(brief) });
     if (blueprint) sections.push({ title: 'PROJECT BLUEPRINT (source of truth — do not contradict it)', priority: 93, minChars: 3000, body: json(blueprint) });
     const { rows: claims } = await this.#db.query(
-      `SELECT statement, classification, source_ids FROM research_claims WHERE project_id = $1 AND classification <> 'VERIFIED_FACT' ORDER BY classification, created_at LIMIT 60`,
+      // The same claim is often reported by several agents; list each statement once.
+      `SELECT min(statement) AS statement, classification, coalesce(array_agg(DISTINCT sid ORDER BY sid) FILTER (WHERE sid IS NOT NULL), '{}') AS source_ids
+       FROM research_claims LEFT JOIN LATERAL unnest(source_ids) AS sid ON true
+       WHERE project_id = $1 AND classification <> 'VERIFIED_FACT'
+       GROUP BY classification, lower(statement) ORDER BY classification, min(created_at) LIMIT 60`,
       [task.project_id],
     );
     if (claims.length) {

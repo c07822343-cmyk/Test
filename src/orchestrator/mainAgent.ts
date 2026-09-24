@@ -413,7 +413,7 @@ export class MainAgent {
     const gates = activeGates(project);
     const tasks = applyGates(validated.tasks, gates).map((t) => ({
       ...t,
-      skills: [...new Set([...this.d.skills.forAgent(chain, t.agent_type), ...(t.skills ?? []).map((s) => this.d.skills.resolve(s)).filter(Boolean).map((d) => `${d!.name}@${d!.version}`)])],
+      skills: this.#taskSkills(chain, t),
       stage: t.stage ?? getAgent(t.agent_type).stage,
     }));
     const levels = parallelLevels(tasks);
@@ -680,7 +680,7 @@ export class MainAgent {
     let narrative: { completed: string; issues_summary: string; recommended_next_step: string | null } | null = null;
     try {
       const res = await this.d.provider.requestModel({
-        capability: 'summarization', maxTokens: 1200, temperature: 0.2,
+        capability: 'reasoning', maxTokens: 1200, temperature: 0.2,
         metadata: { purpose: 'main_agent:report', projectId, priority: 95 },
         messages: [
           { role: 'system', content: 'You are the ApexWeb Main Agent writing the completion report for the user. Use ONLY the facts provided; never claim something passed if the facts say otherwise. Be concise and specific. Reply with JSON: {"completed": "what was accomplished (3-6 sentences)", "issues_summary": "what remains unresolved, or \'None\'", "recommended_next_step": string|null}. No hidden reasoning.' },
@@ -724,7 +724,18 @@ export class MainAgent {
     }
     const final = await this.d.repos.snapshot(projectId, { label: `Handoff package: ${project.name}`, taskId: null, author: 'main_orchestrator', stable: factsForReport.qa.passed });
     if (final && factsForReport.qa.passed) await this.d.repos.markStable(final.id);
-    await this.d.projects.update(projectId, { final_report: report, status: 'COMPLETED', completed_at: new Date() });
+    // Work added while assembling (extendProject moves the project back to RUNNING)
+    // supersedes this package; the project settles and assembles again afterwards.
+    const { rows: [now] } = await this.d.db.query(`SELECT count(*)::int AS n FROM tasks WHERE project_id = $1 AND kind <> 'root'`, [projectId]);
+    const completed = now.n === work.length ? await this.d.projects.transition(projectId, ['ASSEMBLING'], 'COMPLETED') : null;
+    if (!completed) {
+      log.info('assembly superseded by new work', { project: projectId });
+      if (await this.d.projects.transition(projectId, ['ASSEMBLING'], 'RUNNING')) {
+        setImmediate(() => this.checkSettled(projectId).catch((err) => log.error('settle check failed', { project: projectId, error: errorMessage(err) })));
+      }
+      return report;
+    }
+    await this.d.projects.update(projectId, { final_report: report });
     const root = await this.#root(projectId);
     if (root.status === 'WAITING') await this.d.queue.transition(root.id, ['WAITING'], 'COMPLETED', { outputs: report, completed_at: new Date() }, { type: 'assembled', actor });
     await this.d.projects.addMessage(projectId, 'main_agent', renderReportMarkdown(project, report), { report: true });
@@ -773,6 +784,12 @@ export class MainAgent {
     return out;
   }
 
+  /** The project's skill chain for this agent plus any skills the task names explicitly (resolved to name@version). */
+  #taskSkills(chain: string[], t: PlanTask): string[] {
+    const explicit = (t.skills ?? []).map((r) => this.d.skills.resolve(r)).filter((d) => d && d.compatible_agents.includes(t.agent_type)).map((d) => `${d!.name}@${d!.version}`);
+    return [...new Set([...this.d.skills.forAgent(chain, t.agent_type), ...explicit])];
+  }
+
   /** Adds a sub-graph (review, test, QA, fix workflows) to an existing project. */
   async extendProject(projectId: string, tasks: PlanTask[], label: string, actor: string): Promise<TaskRow[]> {
     const project = await this.d.projects.get(projectId);
@@ -785,11 +802,11 @@ export class MainAgent {
       id: ids.get(t.key), plan_key: `${prefix}__${t.key}`, agent_type: t.agent_type, title: t.title, mission: t.mission,
       kind: t.approval_gate ? 'approval' : t.triage ? 'triage' : t.visual_qa_gate ? 'visual_qa' : t.review_of ? 'review' : t.qa_gate ? 'qa' : 'work',
       priority: t.priority, priority_class: t.priority_class, optional: !!t.optional, dependencies: t.depends_on.filter((d) => ids.has(d)).map((d) => ids.get(d)!),
-      review_target: t.review_of ? ids.get(t.review_of) ?? null : null, skills: this.d.skills.forAgent(chain, t.agent_type), stage: t.stage ?? getAgent(t.agent_type).stage,
+      review_target: t.review_of ? ids.get(t.review_of) ?? null : null, skills: this.#taskSkills(chain, t), stage: t.stage ?? getAgent(t.agent_type).stage,
       idempotency_key: `${projectId}:${prefix}:${t.key}`,
     }));
     const created = await this.d.queue.createTasks(projectId, specs, actor);
-    await this.d.db.query(`UPDATE projects SET status = 'RUNNING', final_report = CASE WHEN status IN ('COMPLETED', 'APPROVED') THEN NULL ELSE final_report END, completed_at = NULL, updated_at = now() WHERE id = $1 AND status IN ('COMPLETED', 'APPROVED', 'NEEDS_ATTENTION', 'RUNNING')`, [projectId]);
+    await this.d.db.query(`UPDATE projects SET status = 'RUNNING', final_report = CASE WHEN status IN ('COMPLETED', 'APPROVED') THEN NULL ELSE final_report END, completed_at = NULL, updated_at = now() WHERE id = $1 AND status IN ('COMPLETED', 'APPROVED', 'NEEDS_ATTENTION', 'RUNNING', 'ASSEMBLING')`, [projectId]);
     const root = await this.#root(projectId);
     if (root.status === 'COMPLETED') await this.d.queue.transition(root.id, ['COMPLETED'], 'WAITING', {}, { type: 'project_extended', actor, detail: { label } });
     await this.d.queue.reconcile(projectId, actor);

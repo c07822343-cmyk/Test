@@ -1,5 +1,6 @@
 // Composition root: builds every component from configuration. Extension
-// folders (agents/, skills/, workflows/, knowledge/ and APEXWEB_EXTENSIONS_DIR)
+// folders (agents/, skills/, workflows/, tools/, providers/, memory/, qa/ and
+// the same layout under APEXWEB_EXTENSIONS_DIR)
 // are loaded here, so new capabilities are registered - not coded - into the OS.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -10,6 +11,8 @@ import { CacheStore } from './cache/cache.ts';
 import type { AppConfig } from './config/env.ts';
 import { migrate } from './db/migrate.ts';
 import { createPool, type Db } from './db/pool.ts';
+import { loadQaChecks } from './extensions/qaChecks.ts';
+import { loadToolExtensions } from './extensions/tools.ts';
 import { ProjectRepos } from './devops/git.ts';
 import { KnowledgeBase } from './knowledge/kb.ts';
 import { ArtifactStore } from './memory/artifacts.ts';
@@ -64,11 +67,23 @@ export interface Services {
   approvals: Approvals;
   heartbeats: Heartbeats;
   watchdog: Watchdog;
-  extensions: { agents: string[]; skills: { loaded: number; errors: string[] }; templates: { loaded: number; errors: string[] }; knowledge_seeded: number };
+  extensions: {
+    agents: string[];
+    skills: { loaded: number; errors: string[] };
+    templates: { loaded: number; errors: string[] };
+    knowledge_seeded: number;
+    tools: { loaded: string[]; errors: string[] };
+    qa_checks: { loaded: string[]; errors: string[] };
+    provider_models: { loaded: string[]; errors: string[] };
+  };
   startedAt: Date;
 }
 
 let agentExtensionsLoaded = false;
+
+function jsonFiles(dirs: string[]): string[] {
+  return dirs.filter((d) => existsSync(d)).flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.json')).sort().map((f) => path.join(d, f)));
+}
 
 /** agents/*.json extension definitions (registered once per process). */
 export function loadAgentExtensions(dirs: string[]): string[] {
@@ -92,8 +107,13 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
   const env = opts.env ?? process.env;
   const extRoot = env.APEXWEB_EXTENSIONS_DIR ? path.resolve(env.APEXWEB_EXTENSIONS_DIR) : null;
   const dirs = (name: string) => [path.join(ROOT, name), ...(extRoot ? [path.join(extRoot, name)] : [])];
+  // Tools first: agent extensions may reference extension tools.
+  const toolExt = await loadToolExtensions(dirs('tools'));
+  if (toolExt.errors.length) log.warn('tool extension problems', { errors: toolExt.errors });
   const agentExt = loadAgentExtensions(dirs('agents'));
   validateRegistry();
+  const qaExt = loadQaChecks(dirs('qa'));
+  if (qaExt.errors.length) log.warn('qa check extension problems', { errors: qaExt.errors });
   const templatesLoaded = loadTemplates(dirs('workflows'));
   if (templatesLoaded.errors.length) log.warn('workflow template problems', { errors: templatesLoaded.errors });
   registerSecret(config.apiToken);
@@ -116,7 +136,9 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
     strategy: createStrategy(config.nvidia.schedulingStrategy),
   });
   await keyPool.sync();
-  const router = new ModelRouter(db, loadModelRegistry(config.nvidia.modelsFile));
+  const registry = loadModelRegistry(config.nvidia.modelsFile, jsonFiles(dirs('providers')));
+  if (registry.extensions.errors.length) log.warn('provider extension problems', { errors: registry.extensions.errors });
+  const router = new ModelRouter(db, registry.models);
   await router.load();
   const client = new NvidiaClient({ baseUrl: config.nvidia.baseUrl, timeoutMs: config.nvidia.requestTimeoutMs, vault: keyPool.vault, fetchImpl: opts.fetchImpl });
   const provider = new NvidiaProvider({ db, keyPool, router, client, maxLeaseWaitMs: config.nvidia.maxLeaseWaitMs });
@@ -124,7 +146,7 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
   const skillLoad = await skills.load();
   const knowledge = new KnowledgeBase(db);
   let seeded = 0;
-  for (const d of dirs('knowledge')) seeded += await knowledge.seed(d);
+  for (const d of dirs('memory')) seeded += await knowledge.seed(d);
   const cache = new CacheStore(db);
   const search = createSearchProvider(env, opts.researchFetchImpl);
   const repos = new ProjectRepos(db, artifacts, config.dataDir);
@@ -145,7 +167,7 @@ export async function createServices(config: AppConfig, opts: { fetchImpl?: type
   const services: Services = {
     config, db, queue, projects, memory, artifacts, keyPool, router, client, provider, contextBuilder, executor, mainAgent, driver,
     skills, knowledge, cache, search, repos, lifecycle, approvals, heartbeats, watchdog,
-    extensions: { agents: agentExt, skills: skillLoad, templates: templatesLoaded, knowledge_seeded: seeded },
+    extensions: { agents: agentExt, skills: skillLoad, templates: templatesLoaded, knowledge_seeded: seeded, tools: toolExt, qa_checks: qaExt, provider_models: registry.extensions },
     startedAt: new Date(),
   };
   attachCommands(services);

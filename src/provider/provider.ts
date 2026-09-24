@@ -215,6 +215,43 @@ export class NvidiaProvider {
     return { ok: true, missing };
   }
 
+  /**
+   * Verifies each configured key with one lightweight catalog request, leased
+   * for that specific key through the Key Manager (counted against its 55 RPM
+   * ceiling like any other call). Reports masked ids only.
+   */
+  async checkKeys(): Promise<Array<{ key: string; masked: string; ok: boolean; http_status: number | null; latency_ms: number | null; models_visible: number | null; registry_models_missing: string[]; error: string | null }>> {
+    const out = [];
+    const anyModel = this.router.registry.find((m) => m.enabled)?.id ?? 'catalog';
+    for (const k of await this.keyPool.snapshots()) {
+      const row = { key: k.id, masked: k.masked, ok: false, http_status: null as number | null, latency_ms: null as number | null, models_visible: null as number | null, registry_models_missing: [] as string[], error: null as string | null };
+      if (!k.active) {
+        out.push({ ...row, error: `disabled: ${k.disabledReason ?? 'inactive'}` });
+        continue;
+      }
+      let lease: Lease;
+      try {
+        lease = await this.keyPool.acquire({ model: anyModel, requesterId: `key-check:${k.id}`, purpose: 'key_check', keyId: k.id, priority: 90, maxWaitMs: 90_000 });
+      } catch (err) {
+        out.push({ ...row, error: `no capacity: ${(err as Error).message}` });
+        continue;
+      }
+      const started = Date.now();
+      const res = await this.client.listModels(lease.keyId);
+      const latency = Date.now() - started;
+      await this.keyPool.complete(lease, res.ok
+        ? { status: 'ok', httpStatus: 200, latencyMs: latency }
+        : { status: res.status === 'model_unavailable' ? 'client_error' : res.status, httpStatus: res.httpStatus, latencyMs: latency, error: res.message });
+      if (res.ok) {
+        const visible = new Set(res.ids);
+        out.push({ ...row, ok: true, http_status: 200, latency_ms: latency, models_visible: res.ids.length, registry_models_missing: this.router.registry.filter((m) => m.enabled && !visible.has(m.id)).map((m) => m.id) });
+      } else {
+        out.push({ ...row, http_status: res.httpStatus, latency_ms: latency, error: res.message });
+      }
+    }
+    return out;
+  }
+
   async recentRequests(limit = 50) {
     const { rows } = await this.#db.query(
       `SELECT lease_id, key_id, model, task_id, purpose, status, http_status, latency_ms, granted_at, finished_at, error
