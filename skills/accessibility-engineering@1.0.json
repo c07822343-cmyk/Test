@@ -1,0 +1,50 @@
+{
+  "name": "accessibility-engineering",
+  "version": "1.0",
+  "title": "Accessibility Engineering",
+  "category": "code",
+  "description": "Keyboard navigation, semantic HTML, focus states, contrast, labels, alt text and reduced-motion behaviour.",
+  "when_to_use": "Every build and audit.",
+  "triggers": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "ada"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "prelaunch_qa",
+    "website_audit"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "accessibility_axe"
+  ],
+  "instructions": [
+    "Zero serious/critical axe violations; visible focus; logical tab order; labelled controls; meaningful alt text; reduced motion honoured."
+  ],
+  "expected_outputs": [
+    "WCAG findings",
+    "fixes"
+  ],
+  "validation": [
+    {
+      "rule": "reduced_motion_supported"
+    }
+  ],
+  "compatible_agents": [
+    "accessibility_specialist",
+    "frontend_developer",
+    "website_debugger"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

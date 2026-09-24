@@ -1,0 +1,23 @@
+{
+  "intent": "quick_task",
+  "label": "Quick Specialist Task",
+  "description": "One specialist, one result: for simple, well-scoped requests.",
+  "triggers": [
+    "quick",
+    "simple",
+    "just"
+  ],
+  "required": [
+    "task"
+  ],
+  "tasks": [
+    {
+      "key": "task",
+      "agent_type": "research_coordinator",
+      "title": "Handle the request",
+      "mission": "Complete the request directly and concisely.",
+      "depends_on": [],
+      "priority": 70
+    }
+  ]
+}

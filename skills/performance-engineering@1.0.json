@@ -1,0 +1,52 @@
+{
+  "name": "performance-engineering",
+  "version": "1.0",
+  "title": "Performance Engineering",
+  "category": "code",
+  "description": "Optimise JavaScript, images, fonts, animations, 3D, lazy loading and resource delivery.",
+  "when_to_use": "Every build (budget) and whenever measurements exceed targets.",
+  "triggers": [
+    "slow",
+    "performance",
+    "speed",
+    "core web vitals"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "performance_probe"
+  ],
+  "instructions": [
+    "Targets on emulated mid-range mobile: LCP <= 2.5s, CLS <= 0.1, no render-blocking scripts, total weight within budget.",
+    "Fix concretely: preload hero, set image dimensions, defer scripts, subset fonts, pause off-screen animation."
+  ],
+  "expected_outputs": [
+    "measured findings",
+    "fixes"
+  ],
+  "validation": [
+    {
+      "rule": "lazy_offscreen_images",
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "performance_engineer",
+    "performance_checker",
+    "frontend_developer",
+    "website_debugger"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

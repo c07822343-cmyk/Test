@@ -1,0 +1,49 @@
+{
+  "name": "competitor-analysis",
+  "version": "1.0",
+  "title": "Competitor Analysis",
+  "category": "research",
+  "description": "Compare public competitor websites on structure, messaging, UX, design patterns, offerings and positioning without copying proprietary content.",
+  "when_to_use": "Positioning or differentiation matters, or the user asks about competitors.",
+  "triggers": [
+    "competitor",
+    "competition",
+    "compare",
+    "vs",
+    "versus"
+  ],
+  "intents": [
+    "competitor_research",
+    "new_website",
+    "local_business_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "web_research",
+    "web_fetch_sources",
+    "security_screen"
+  ],
+  "instructions": [
+    "Summarise patterns and gaps; never reproduce competitor copy, imagery or distinctive designs.",
+    "Label each pattern observed (from a fetched source id) or typical_for_sector (general knowledge).",
+    "End with concrete differentiation opportunities for this client."
+  ],
+  "expected_outputs": [
+    "pattern table",
+    "differentiation opportunities"
+  ],
+  "validation": [
+    {
+      "rule": "claims_classified",
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "competitive_research",
+    "research_coordinator"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

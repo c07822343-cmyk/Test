@@ -1,0 +1,57 @@
+{
+  "name": "local-business-research",
+  "version": "1.0",
+  "title": "Local Business Research",
+  "category": "research",
+  "description": "Research public information about a company: services, locations, contact information, service areas, descriptions, public reviews, imagery, branding and competitors - source-aware.",
+  "when_to_use": "A specific business is named, or an existing site/listing is available.",
+  "triggers": [
+    "company",
+    "business",
+    "local",
+    "our business",
+    "client"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_website",
+    "new_demo",
+    "website_improvement",
+    "website_redesign"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "web_research",
+    "web_fetch_sources",
+    "security_screen"
+  ],
+  "instructions": [
+    "Record every claim with its classification: VERIFIED_FACT (stated by a fetched source you cite by id), SOURCE_DERIVED (reasonably derived from cited sources), INFERENCE (your reasoning), UNVERIFIED.",
+    "Cite sources by the research source ids provided in TOOL EVIDENCE; never invent URLs or source ids.",
+    "Contact details, addresses, licences, years in business and reviews are only facts when a cited source states them.",
+    "If nothing could be fetched, say so and return only INFERENCE/UNVERIFIED claims."
+  ],
+  "expected_outputs": [
+    "result.claims: [{statement, classification, source_ids, confidence}]",
+    "service and area summary"
+  ],
+  "validation": [
+    {
+      "rule": "claims_classified"
+    }
+  ],
+  "compatible_agents": [
+    "content_research",
+    "research_coordinator",
+    "competitive_research",
+    "client_intake",
+    "source_summarizer",
+    "fact_checker"
+  ],
+  "sub_skills": [
+    "security-screening"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

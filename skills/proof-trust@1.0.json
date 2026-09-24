@@ -1,0 +1,48 @@
+{
+  "name": "proof-trust",
+  "version": "1.0",
+  "title": "Proof & Trust",
+  "category": "content",
+  "description": "Identify legitimate trust signals (licences, insurance, reviews, guarantees, certifications, response times) without fabricating anything.",
+  "when_to_use": "Any client-facing site; especially local services.",
+  "triggers": [
+    "trust",
+    "reviews",
+    "testimonials",
+    "credibility"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "List trust signals the client must supply and where they will appear; never invent testimonials, awards, ratings or statistics.",
+    "Use honest process-based trust (upfront pricing, what happens on a visit) when proof is not yet available."
+  ],
+  "expected_outputs": [
+    "trust signal plan",
+    "client proof checklist"
+  ],
+  "validation": [
+    {
+      "rule": "no_unsupported_claims"
+    }
+  ],
+  "compatible_agents": [
+    "website_copywriter",
+    "conversion_optimization",
+    "content_research",
+    "fact_checker"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,40 @@
+{
+  "name": "git-workflow",
+  "version": "1.0",
+  "title": "Git Workflow",
+  "category": "devops",
+  "description": "Create clean, minimal, well-described changes; every accepted change becomes a snapshot commit.",
+  "when_to_use": "Every change to project files.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "emergency_bug_fix",
+    "client_revision"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Change only what the task requires; return a one-line conventional commit message in result.commit_message.",
+    "Never rewrite or discard history; rollbacks are new commits."
+  ],
+  "expected_outputs": [
+    "minimal change",
+    "commit message"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_debugger",
+    "frontend_developer",
+    "component_builder"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,48 @@
+{
+  "name": "3d-web-experience",
+  "version": "1.0",
+  "title": "3D Web Experience",
+  "category": "visual",
+  "description": "Three.js/WebGL scenes, shaders, procedural geometry, camera systems, lighting, depth, particles and environmental effects - only when they improve the project.",
+  "when_to_use": "The request or brand genuinely benefits from spatial storytelling (product visualisation, architecture, immersive brand moments). Not for decoration.",
+  "triggers": [
+    "3d",
+    "three.js",
+    "threejs",
+    "webgl",
+    "immersive",
+    "shader",
+    "interactive scene"
+  ],
+  "intents": [
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Decide first: state why 3D helps this audience; recommend no_3d when it does not.",
+    "Lazy-load the scene, pause when off-screen (IntersectionObserver/visibilitychange), cap DPR, target 60fps on mid-range mobile.",
+    "Respect prefers-reduced-motion and provide a static fallback image/poster; keep JS for the scene under ~150KB.",
+    "Keep content and CTAs readable over or beside the scene; 3D never blocks the primary action."
+  ],
+  "expected_outputs": [
+    "3D decision with rationale",
+    "scene implementation with fallbacks"
+  ],
+  "validation": [
+    {
+      "rule": "three_d_justified"
+    },
+    {
+      "rule": "reduced_motion_supported"
+    }
+  ],
+  "compatible_agents": [
+    "webgl_specialist",
+    "frontend_developer"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

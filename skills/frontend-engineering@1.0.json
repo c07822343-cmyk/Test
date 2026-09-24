@@ -1,0 +1,59 @@
+{
+  "name": "frontend-engineering",
+  "version": "1.0",
+  "title": "Frontend Engineering",
+  "category": "code",
+  "description": "Modern frontend engineering with the right tool for the job: plain HTML/CSS/JS for static marketing sites, frameworks only when requirements demand them.",
+  "when_to_use": "Any implementation work.",
+  "triggers": [
+    "frontend",
+    "react",
+    "html",
+    "css",
+    "javascript"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "static_site_audit"
+  ],
+  "instructions": [
+    "Choose the simplest stack that meets requirements; justify any framework.",
+    "Accessible semantic markup, mobile-first CSS with tokens, deferred JS, images with width/height and lazy loading below the fold.",
+    "No console errors; no unused libraries; progressive enhancement."
+  ],
+  "expected_outputs": [
+    "clean implementation"
+  ],
+  "validation": [
+    {
+      "rule": "html_hard_failures_zero"
+    },
+    {
+      "rule": "lazy_offscreen_images",
+      "severity": "warning"
+    },
+    {
+      "rule": "no_hotlinked_images",
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "frontend_developer",
+    "component_builder",
+    "website_debugger",
+    "interaction_debugger"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "project-analyzer",
+  "version": "1.0",
+  "title": "Project Analyzer",
+  "category": "files",
+  "description": "Understand an entire website codebase: framework, pages, assets, build scripts and structural problems.",
+  "when_to_use": "A codebase, ZIP project or repository was supplied.",
+  "triggers": [
+    "codebase",
+    "repository",
+    "repo",
+    "zip",
+    "project files"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "project_analyzer"
+  ],
+  "instructions": [
+    "Identify stack, entry points, pages/routes, asset pipeline and risks before anyone modifies anything."
+  ],
+  "expected_outputs": [
+    "project structure report"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "file_asset_analyst",
+    "website_architect"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

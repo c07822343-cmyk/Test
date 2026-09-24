@@ -1,0 +1,49 @@
+{
+  "name": "motion-design",
+  "version": "1.0",
+  "title": "Motion Design",
+  "category": "visual",
+  "description": "Scroll motion, transitions, micro-interactions, hover systems, reveal animations and loading transitions that aid comprehension.",
+  "when_to_use": "Interfaces that benefit from feedback and continuity; never as filler.",
+  "triggers": [
+    "animation",
+    "motion",
+    "scroll effect",
+    "micro-interaction",
+    "transition"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Each animation has a purpose (feedback, orientation, continuity); durations 120-400ms; standard easing tokens.",
+    "Animate transform and opacity only; no layout thrash; no scroll-jacking.",
+    "Complete prefers-reduced-motion fallback."
+  ],
+  "expected_outputs": [
+    "motion tokens",
+    "interaction inventory"
+  ],
+  "validation": [
+    {
+      "rule": "reduced_motion_supported"
+    }
+  ],
+  "compatible_agents": [
+    "animation_motion",
+    "frontend_developer",
+    "webgl_specialist"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

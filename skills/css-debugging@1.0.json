@@ -1,0 +1,39 @@
+{
+  "name": "css-debugging",
+  "version": "1.0",
+  "title": "CSS Debugging",
+  "category": "code",
+  "description": "Diagnose layout problems, overflow, responsive issues, stacking, typography and spacing defects.",
+  "when_to_use": "Visual or layout defects, especially from Visual QA or responsive checks.",
+  "triggers": [
+    "overflow",
+    "layout",
+    "css",
+    "mobile broken"
+  ],
+  "intents": [
+    "emergency_bug_fix",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "responsive_render"
+  ],
+  "instructions": [
+    "Use rendered measurements (overflowing selectors, viewport) to locate the rule; fix at the source, not with overflow:hidden band-aids."
+  ],
+  "expected_outputs": [
+    "root cause",
+    "CSS fix"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_debugger",
+    "responsive_design",
+    "frontend_developer"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,68 @@
+{
+  "name": "local-business-website",
+  "version": "1.0",
+  "title": "Local Business Website",
+  "category": "website",
+  "description": "Specialised playbook for local service businesses: HVAC, plumbing, roofing, pest control, landscaping, electricians, contractors, home and professional services.",
+  "when_to_use": "The client is a local or service-area business whose customers call or book a visit.",
+  "triggers": [
+    "hvac",
+    "plumbing",
+    "plumber",
+    "roofing",
+    "roofer",
+    "pest control",
+    "landscaping",
+    "electrician",
+    "contractor",
+    "home services",
+    "cleaning",
+    "handyman",
+    "dentist",
+    "law firm",
+    "accountant",
+    "local company",
+    "local business"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Lead with the jobs customers hire for (repair, install, maintenance, emergency) and the service area; make calling and booking one tap away.",
+    "Service pages per core service; service-area signals without doorway pages; transparent process (what happens on a visit).",
+    "Trust comes from verifiable facts only: licences, years, reviews, guarantees appear only if confirmed; otherwise placeholders listed for the client.",
+    "Seasonal and emergency needs (no heat, no cooling, leaks) addressed plainly."
+  ],
+  "expected_outputs": [
+    "service-led architecture",
+    "local SEO structure",
+    "contact-first UX"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_architect",
+    "website_copywriter",
+    "frontend_developer",
+    "seo_specialist",
+    "local_seo_specialist",
+    "content_research",
+    "client_intake",
+    "ui_ux_designer"
+  ],
+  "sub_skills": [
+    "local-business-research",
+    "local-seo",
+    "service-page",
+    "proof-trust",
+    "faq",
+    "premium-design",
+    "visual-qa"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

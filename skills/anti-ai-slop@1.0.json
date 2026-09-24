@@ -1,0 +1,57 @@
+{
+  "name": "anti-ai-slop",
+  "version": "1.0",
+  "title": "Anti-AI-Slop",
+  "category": "qa",
+  "description": "Actively detect and remove generic AI website patterns: filler phrasing, invented claims, fabricated testimonials, template sections, decorative effects.",
+  "when_to_use": "Always, for any client-facing copy or site.",
+  "triggers": [
+    "generic",
+    "ai slop",
+    "template"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "anti_slop_scan"
+  ],
+  "instructions": [
+    "Remove filler phrasing (\"elevate\", \"seamless\", \"unlock\", \"cutting-edge\"...) and write specifically.",
+    "No statistics, years, ratings, awards, guarantees or testimonials unless they are confirmed facts; use [[PLACEHOLDER: ...]] and list them.",
+    "No repeated template sections, meaningless gradients, stacked glassmorphism, random 3D or animation without purpose."
+  ],
+  "expected_outputs": [
+    "clean, specific copy and markup"
+  ],
+  "validation": [
+    {
+      "rule": "no_banned_phrases"
+    },
+    {
+      "rule": "no_unsupported_claims"
+    }
+  ],
+  "compatible_agents": [
+    "website_copywriter",
+    "frontend_developer",
+    "design_critic",
+    "ui_ux_designer",
+    "website_debugger",
+    "brand_voice",
+    "final_qa_release",
+    "qa_director",
+    "component_builder"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

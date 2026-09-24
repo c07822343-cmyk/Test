@@ -1,0 +1,121 @@
+{
+  "intent": "website_audit",
+  "label": "Website Audit",
+  "description": "Evidence-based audit of an existing site; no changes are made.",
+  "triggers": [
+    "audit",
+    "review my website",
+    "analyse my site"
+  ],
+  "required": [
+    "intake",
+    "report"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the audit request",
+      "mission": "Record what was supplied and what the client wants to learn.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "audit_seo",
+      "agent_type": "seo_specialist",
+      "title": "SEO audit",
+      "mission": "Technical and on-page SEO audit with prioritised fixes.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_a11y",
+      "agent_type": "accessibility_specialist",
+      "title": "Accessibility audit",
+      "mission": "WCAG 2.2 AA audit with fixes.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_responsive",
+      "agent_type": "responsive_design",
+      "title": "Responsive audit",
+      "mission": "Viewport audit with fixes.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_performance",
+      "agent_type": "performance_engineer",
+      "title": "Performance audit",
+      "mission": "Measured performance audit with fixes.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_visual",
+      "agent_type": "visual_qa",
+      "title": "Visual QA audit",
+      "mission": "Render and analyse every viewport.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_ux",
+      "agent_type": "ux_reviewer",
+      "title": "UX audit",
+      "mission": "Journey friction and conversion problems.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_bugs",
+      "agent_type": "bug_finder",
+      "title": "Technical bug audit",
+      "mission": "Runtime and interaction defects.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "audit_content",
+      "agent_type": "conversion_optimization",
+      "title": "Content and conversion audit",
+      "mission": "Clarity, CTAs, proof and friction.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 78
+    },
+    {
+      "key": "report",
+      "agent_type": "project_documentation",
+      "title": "Audit report",
+      "mission": "Write docs/AUDIT.md: prioritised findings (critical/major/minor) with evidence and fixes, strictly from the task outputs.",
+      "depends_on": [
+        "audit_seo",
+        "audit_a11y",
+        "audit_responsive",
+        "audit_performance",
+        "audit_visual",
+        "audit_ux",
+        "audit_bugs",
+        "audit_content"
+      ],
+      "priority": 50
+    }
+  ]
+}

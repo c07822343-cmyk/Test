@@ -1,0 +1,49 @@
+{
+  "name": "handoff",
+  "version": "1.0",
+  "title": "Handoff",
+  "category": "client",
+  "description": "Create a clean client handoff package: final project, instructions, assets, documentation, configuration notes.",
+  "when_to_use": "Project completion.",
+  "triggers": [
+    "handoff",
+    "hand over",
+    "deliver"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "docs/HANDOFF.md: what was built, structure, how to deploy and edit, every placeholder to replace, open items, configuration notes.",
+    "Document only what actually happened according to the task log."
+  ],
+  "expected_outputs": [
+    "docs/HANDOFF.md",
+    "docs/CHANGELOG.md"
+  ],
+  "validation": [
+    {
+      "rule": "files_required",
+      "paths": [
+        "docs/HANDOFF.md"
+      ]
+    }
+  ],
+  "compatible_agents": [
+    "project_documentation"
+  ],
+  "sub_skills": [
+    "deployment-preparation"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

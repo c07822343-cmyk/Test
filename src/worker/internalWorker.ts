@@ -5,6 +5,7 @@ import type { MainAgent, ExecutionDriver } from '../orchestrator/mainAgent.ts';
 import type { TaskQueue } from '../queue/taskQueue.ts';
 import { errorMessage, logger } from '../util/log.ts';
 import type { TaskExecutor } from './executor.ts';
+import type { Heartbeats } from './watchdog.ts';
 
 const log = logger('internal-worker');
 
@@ -21,13 +22,16 @@ export class InternalWorker implements ExecutionDriver {
   #pumping = false;
   #again = false;
   #stopped = true;
+  #heartbeats: Heartbeats | null;
+  #beat: NodeJS.Timeout | null = null;
 
-  constructor(opts: { queue: TaskQueue; executor: TaskExecutor; main: MainAgent; owner: string; maxConcurrent: number }) {
+  constructor(opts: { queue: TaskQueue; executor: TaskExecutor; main: MainAgent; owner: string; maxConcurrent: number; heartbeats?: Heartbeats }) {
     this.#queue = opts.queue;
     this.#executor = opts.executor;
     this.#main = opts.main;
     this.#owner = opts.owner;
     this.#max = opts.maxConcurrent;
+    this.#heartbeats = opts.heartbeats ?? null;
   }
 
   async onProjectCreated(projectId: string): Promise<void> {
@@ -50,6 +54,9 @@ export class InternalWorker implements ExecutionDriver {
     this.#reaper = setInterval(() => {
       this.#executor.reapExpired(this.#owner).catch((err) => log.warn('reaper failed', { error: errorMessage(err) }));
     }, 30_000);
+    const beat = () => void this.#heartbeats?.beat(this.#owner, 'internal-worker', this.#inflight.size, { max: this.#max }).catch(() => undefined);
+    beat();
+    this.#beat = setInterval(beat, 10_000);
     this.pump();
   }
 
@@ -101,6 +108,7 @@ export class InternalWorker implements ExecutionDriver {
     this.#stopped = true;
     if (this.#timer) clearInterval(this.#timer);
     if (this.#reaper) clearInterval(this.#reaper);
+    if (this.#beat) clearInterval(this.#beat);
     this.#queue.off('tasks_ready', this.#onReady);
     this.#queue.off('task_cancelled', this.#onCancelled);
     if (opts.abort) for (const ac of this.#inflight.values()) ac.abort(new Error('worker stopping'));

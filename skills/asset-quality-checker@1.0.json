@@ -1,0 +1,33 @@
+{
+  "name": "asset-quality-checker",
+  "version": "1.0",
+  "title": "Asset Quality Checker",
+  "category": "files",
+  "description": "Detect wrong aspect ratios, duplicates, poor resolution, irrelevant or oversized assets and missing referenced assets.",
+  "when_to_use": "Before assets are used in a build.",
+  "triggers": [
+    "image quality",
+    "resolution",
+    "assets"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "asset_quality"
+  ],
+  "instructions": [
+    "Flag each problem with the asset path, the measured value and a recommendation."
+  ],
+  "expected_outputs": [
+    "asset quality report"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "file_asset_analyst",
+    "ui_ux_designer"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

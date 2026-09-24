@@ -1,0 +1,42 @@
+{
+  "name": "landing-page",
+  "version": "1.0",
+  "title": "Landing Page",
+  "category": "website",
+  "description": "Design and build a single-purpose, high-conversion landing page.",
+  "when_to_use": "Campaign pages, single offers, lead-generation pages.",
+  "triggers": [
+    "landing page",
+    "campaign",
+    "lead gen",
+    "squeeze page"
+  ],
+  "intents": [
+    "landing_page"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "One primary conversion goal; every section either builds the case for it or removes an objection.",
+    "Primary CTA above the fold on mobile and repeated after key proof points; phone as a secondary path for service businesses.",
+    "Short form (ask only what the business needs), clear next-step microcopy, no navigation leaks that distract from the goal."
+  ],
+  "expected_outputs": [
+    "single-goal page structure",
+    "conversion-focused copy"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_architect",
+    "website_copywriter",
+    "frontend_developer",
+    "conversion_optimization"
+  ],
+  "sub_skills": [
+    "cta-optimization",
+    "copywriting"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

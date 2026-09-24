@@ -1,0 +1,51 @@
+{
+  "name": "visual-qa",
+  "version": "1.0",
+  "title": "Visual QA",
+  "category": "qa",
+  "description": "Render at desktop, tablet and mobile, capture screenshots, detect visual problems (navigation, hero, typography, spacing, CTAs, cards, forms, animation, 3D, footer, overflow), send issues back, re-render and compare until quality gates pass or the cycle limit is reached.",
+  "when_to_use": "After every build or significant change - one of the most important ApexWeb skills.",
+  "triggers": [
+    "visual qa",
+    "looks broken",
+    "check the design"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "visual_qa",
+    "visual_screenshots"
+  ],
+  "instructions": [
+    "Use the visual_qa region checks and screenshots as ground truth; name viewport, region and element for each issue.",
+    "Compare with the previous pass: report resolved issues, remaining issues and regressions.",
+    "Approve only when no critical or major visual issue remains."
+  ],
+  "expected_outputs": [
+    "per-viewport issues",
+    "comparison with previous pass"
+  ],
+  "validation": [
+    {
+      "rule": "review_has_actionable_fixes"
+    }
+  ],
+  "compatible_agents": [
+    "visual_qa",
+    "mobile_ui_checker",
+    "design_critic"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

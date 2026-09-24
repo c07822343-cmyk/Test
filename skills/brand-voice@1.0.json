@@ -1,0 +1,46 @@
+{
+  "name": "brand-voice",
+  "version": "1.0",
+  "title": "Brand Voice",
+  "category": "content",
+  "description": "Infer and maintain a consistent brand voice from supplied material (existing site, documents, client messages).",
+  "when_to_use": "Always before copywriting; revisit when client material is supplied.",
+  "triggers": [
+    "brand",
+    "voice",
+    "tone"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "content_only"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "file_analyzer"
+  ],
+  "instructions": [
+    "Derive voice attributes from real material when available and cite it; otherwise propose a voice fitting audience and sector and label it proposed.",
+    "Give do/don't vocabulary and before/after examples."
+  ],
+  "expected_outputs": [
+    "voice attributes",
+    "vocabulary",
+    "examples"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "brand_voice",
+    "website_copywriter",
+    "file_asset_analyst"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

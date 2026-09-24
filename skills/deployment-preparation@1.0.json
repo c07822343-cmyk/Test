@@ -1,0 +1,53 @@
+{
+  "name": "deployment-preparation",
+  "version": "1.0",
+  "title": "Deployment Preparation",
+  "category": "devops",
+  "description": "Prepare a site for deployment: robots, sitemap, 404 page, favicon, caching/security headers configuration and hosting notes.",
+  "when_to_use": "Before handoff or launch.",
+  "triggers": [
+    "deploy",
+    "launch",
+    "go live",
+    "hosting"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Ensure robots.txt and sitemap.xml exist and are correct; recommend a 404 page and favicon.",
+    "Document hosting options (static hosts) and required configuration; never deploy without an approval gate."
+  ],
+  "expected_outputs": [
+    "deployment checklist",
+    "configuration notes"
+  ],
+  "validation": [
+    {
+      "rule": "files_required",
+      "paths": [
+        "robots.txt",
+        "sitemap.xml"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "project_documentation",
+    "final_qa_release",
+    "website_debugger"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

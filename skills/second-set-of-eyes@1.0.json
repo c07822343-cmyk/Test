@@ -1,0 +1,42 @@
+{
+  "name": "second-set-of-eyes",
+  "version": "1.0",
+  "title": "Second Set of Eyes",
+  "category": "qa",
+  "description": "Independent parallel reviews (design, UX, performance, SEO, accessibility, bugs) followed by Main Agent triage deciding which findings require changes.",
+  "when_to_use": "After development of any website deliverable.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Reviewers work independently and cite evidence; the Main Agent accepts evidenced, valuable findings and rejects duplicates and nitpicks with reasons."
+  ],
+  "expected_outputs": [
+    "accepted findings assigned to specialists",
+    "rejected findings with reasons"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "main_orchestrator",
+    "ux_reviewer",
+    "bug_finder",
+    "design_critic",
+    "performance_engineer",
+    "seo_specialist",
+    "accessibility_specialist"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

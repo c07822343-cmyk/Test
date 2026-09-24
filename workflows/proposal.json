@@ -1,0 +1,45 @@
+{
+  "intent": "proposal",
+  "label": "Client Proposal",
+  "description": "Scope and proposal from requirements.",
+  "triggers": [
+    "proposal",
+    "quote",
+    "scope",
+    "estimate"
+  ],
+  "required": [
+    "intake",
+    "proposal"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the client request",
+      "mission": "Structure the client requirements.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "requirements",
+      "agent_type": "requirements_analyst",
+      "title": "Requirements analysis",
+      "mission": "Identify gaps and assumptions to state in the proposal.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "proposal",
+      "agent_type": "proposal_agent",
+      "title": "Write the proposal",
+      "mission": "Write the scope and proposal as docs/PROPOSAL.md. Prices and dates are placeholders unless supplied.",
+      "depends_on": [
+        "requirements"
+      ],
+      "priority": 80
+    }
+  ]
+}

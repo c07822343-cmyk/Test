@@ -1,0 +1,52 @@
+{
+  "name": "design-critique",
+  "version": "1.0",
+  "title": "Design Critique",
+  "category": "qa",
+  "description": "Extremely strict visual review against ApexWeb standards; rejects generic, templated or over-decorated work.",
+  "when_to_use": "After any design or build step.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "anti_slop_scan",
+    "responsive_render"
+  ],
+  "instructions": [
+    "Reject when hierarchy is weak, spacing inconsistent, typography undisciplined, effects decorative, or the page looks like a template.",
+    "Use rendered evidence (screenshots, measurements, anti-slop scan) rather than impressions.",
+    "Revision instructions name the section/selector and the exact change."
+  ],
+  "expected_outputs": [
+    "approve/reject with precise fixes"
+  ],
+  "validation": [
+    {
+      "rule": "review_has_actionable_fixes"
+    }
+  ],
+  "compatible_agents": [
+    "design_critic",
+    "visual_qa",
+    "ux_reviewer",
+    "typography_checker",
+    "spacing_checker",
+    "color_checker",
+    "mobile_ui_checker"
+  ],
+  "sub_skills": [
+    "visual-hierarchy",
+    "anti-ai-slop"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,68 @@
+{
+  "intent": "research_only",
+  "label": "Research Brief",
+  "description": "Source-aware research on a topic.",
+  "triggers": [
+    "research",
+    "find out",
+    "look into"
+  ],
+  "required": [
+    "intake",
+    "research",
+    "synthesis",
+    "report"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the research request",
+      "mission": "Structure the research questions and scope.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "research",
+      "agent_type": "content_research",
+      "title": "Primary research",
+      "mission": "Research the questions; classify every claim with sources.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "competitive",
+      "agent_type": "competitive_research",
+      "title": "Competitive research",
+      "mission": "Relevant competitor patterns and opportunities.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 75,
+      "optional": true
+    },
+    {
+      "key": "synthesis",
+      "agent_type": "research_coordinator",
+      "title": "Research synthesis",
+      "mission": "Merge findings into one brief with confidence levels and open questions.",
+      "depends_on": [
+        "research",
+        "competitive"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "report",
+      "agent_type": "project_documentation",
+      "title": "Research report",
+      "mission": "Write docs/RESEARCH.md from the synthesis.",
+      "depends_on": [
+        "synthesis"
+      ],
+      "priority": 50
+    }
+  ]
+}

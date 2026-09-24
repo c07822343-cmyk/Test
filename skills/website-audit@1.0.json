@@ -1,0 +1,56 @@
+{
+  "name": "website-audit",
+  "version": "1.0",
+  "title": "Website Audit",
+  "category": "website",
+  "description": "Evidence-based audit of layout, UX, responsiveness, performance, accessibility, SEO, technical problems, content quality and conversion.",
+  "when_to_use": "Before redesigning, before launch, or when asked to review a site.",
+  "triggers": [
+    "audit",
+    "review my site",
+    "what is wrong",
+    "analyze"
+  ],
+  "intents": [
+    "website_audit",
+    "website_improvement",
+    "prelaunch_qa",
+    "website_redesign"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "static_site_audit",
+    "seo_audit",
+    "responsive_render",
+    "accessibility_axe",
+    "performance_probe"
+  ],
+  "instructions": [
+    "Every finding cites evidence: tool output, a file/selector, a viewport or a screenshot.",
+    "Cover layout, UX, responsiveness, performance, accessibility, SEO, technical defects, content quality and conversion problems.",
+    "Prioritise: critical (blocks users or launch), major (clearly hurts outcomes), minor (polish).",
+    "Every issue has a concrete fix."
+  ],
+  "expected_outputs": [
+    "prioritised findings with fixes"
+  ],
+  "validation": [
+    {
+      "rule": "review_has_actionable_fixes"
+    }
+  ],
+  "compatible_agents": [
+    "seo_specialist",
+    "accessibility_specialist",
+    "responsive_design",
+    "performance_engineer",
+    "design_critic",
+    "qa_director",
+    "ux_reviewer",
+    "bug_finder"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

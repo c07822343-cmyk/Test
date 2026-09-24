@@ -13,6 +13,8 @@ import type { TaskRow } from '../queue/types.ts';
 import { UNTRUSTED_POLICY } from '../security/untrusted.ts';
 import type { ToolResult } from '../tools/runner.ts';
 import { truncate } from '../util/common.ts';
+import type { KnowledgeBase } from '../knowledge/kb.ts';
+import type { SkillEngine } from '../skills/engine.ts';
 
 interface Section {
   title: string;
@@ -35,6 +37,8 @@ export class ContextBuilder {
   #db: Db;
   #memory: MemoryStore;
   #artifacts: ArtifactStore;
+  #skills: SkillEngine | null = null;
+  #kb: KnowledgeBase | null = null;
 
   constructor(db: Db, memory: MemoryStore, artifacts: ArtifactStore) {
     this.#db = db;
@@ -42,7 +46,12 @@ export class ContextBuilder {
     this.#artifacts = artifacts;
   }
 
-  systemPrompt(agent: AgentDefinition, task: TaskRow, globalRules: any, lessons: string[]): string {
+  attach(opts: { skills: SkillEngine; knowledge: KnowledgeBase }): void {
+    this.#skills = opts.skills;
+    this.#kb = opts.knowledge;
+  }
+
+  systemPrompt(agent: AgentDefinition, task: TaskRow, globalRules: any, lessons: string[], skillsBlock = ''): string {
     const subAgents = task.phase === 'execute' ? allowedSubAgents(agent.type) : [];
     const parts = [
       `You are the ${agent.name}, a specialist worker inside the ApexWeb agent operating system. You receive one task from the ApexWeb Main Agent and return one structured result.`,
@@ -55,6 +64,8 @@ export class ContextBuilder {
       UNTRUSTED_POLICY,
     ];
     if (lessons.length) parts.push(`LESSONS FROM PREVIOUS REVIEWS OF YOUR WORK (avoid repeating these):\n${lessons.slice(-8).map((l) => `- ${l}`).join('\n')}`);
+    if (skillsBlock) parts.push(`LOADED APEXWEB SKILLS (apply all of them; your output is validated against their rules):\n${skillsBlock}`);
+    parts.push('EVIDENCE LEVELS: only CONFIRMED FACTS may be stated as facts about the client. SOURCE-DERIVED claims must be phrased cautiously or confirmed; INFERENCES and UNVERIFIED items must never be presented as confirmed business facts.');
     const protocol = [
       'OUTPUT PROTOCOL (mandatory):',
       'Reply with exactly one JSON object (optionally inside a ```json fence) with these fields:',
@@ -91,6 +102,8 @@ export class ContextBuilder {
     const brief = (await this.#memory.get('project', task.project_id, 'brief')) ?? {};
     const facts = (await this.#memory.get<string[]>('project', task.project_id, 'facts')) ?? [];
     const sections: Section[] = [];
+    const { rows: projRows } = await this.#db.query('SELECT blueprint, stage, mode FROM projects WHERE id = $1', [task.project_id]);
+    const blueprint = projRows[0]?.blueprint;
 
     sections.push({
       title: 'TASK',
@@ -106,6 +119,23 @@ export class ContextBuilder {
       }),
     });
     sections.push({ title: 'PROJECT BRIEF', priority: 95, body: json(brief) });
+    if (blueprint) sections.push({ title: 'PROJECT BLUEPRINT (source of truth — do not contradict it)', priority: 93, minChars: 3000, body: json(blueprint) });
+    const { rows: claims } = await this.#db.query(
+      `SELECT statement, classification, source_ids FROM research_claims WHERE project_id = $1 AND classification <> 'VERIFIED_FACT' ORDER BY classification, created_at LIMIT 60`,
+      [task.project_id],
+    );
+    if (claims.length) {
+      sections.push({
+        title: 'UNCONFIRMED RESEARCH (not facts: phrase cautiously or use placeholders)',
+        priority: 62,
+        body: claims.map((c) => `- [${c.classification}] ${c.statement}${c.source_ids.length ? ` (sources: ${c.source_ids.join(', ')})` : ''}`).join('\n'),
+      });
+    }
+    if (this.#kb) {
+      const tags = [agent.type, agent.department, ...(task.skills ?? []).map((sk) => sk.split('@')[0])];
+      const knowledge = await this.#kb.retrieve(tags, 6);
+      if (knowledge.length) sections.push({ title: 'APEXWEB KNOWLEDGE BASE', priority: 45, body: knowledge.map((k) => `- [${k.category}] ${k.title}: ${k.content}`).join('\n') });
+    }
     if (facts.length) sections.push({ title: 'CONFIRMED FACTS (only these may be stated as facts about the client)', priority: 94, body: facts.map((f) => `- ${f}`).join('\n') });
 
     const feedback: any[] = task.inputs?.revision_feedback ?? [];
@@ -222,7 +252,7 @@ export class ContextBuilder {
     const budget = Math.max(24_000, Math.min(model.context_window - agent.maxTokens - 4_000, 48_000) * 3);
     const trimmedFlags = fitToBudget(sections, budget);
     const userText = sections.map((s) => `## ${s.title}\n${s.body}`).join('\n\n');
-    const system = this.systemPrompt(agent, task, globalRules, lessons);
+    const system = this.systemPrompt(agent, task, globalRules, lessons, this.#skills?.promptBlock(task.skills ?? []) ?? '');
 
     let userContent: string | ChatContentPart[] = userText;
     let imageCount = 0;

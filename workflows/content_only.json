@@ -1,0 +1,78 @@
+{
+  "intent": "content_only",
+  "label": "Content Production",
+  "description": "Copy/content without a site build.",
+  "triggers": [
+    "write",
+    "copy",
+    "content",
+    "blog"
+  ],
+  "required": [
+    "intake",
+    "copy",
+    "report"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the content request",
+      "mission": "Structure the content request.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "research",
+      "agent_type": "content_research",
+      "title": "Content research",
+      "mission": "Research facts the content needs; classify claims.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "brand",
+      "agent_type": "brand_voice",
+      "title": "Voice guidelines",
+      "mission": "Define the voice for this content.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy",
+      "agent_type": "website_copywriter",
+      "title": "Write the content",
+      "mission": "Write the requested content.",
+      "depends_on": [
+        "research",
+        "brand"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy_review",
+      "agent_type": "conversion_optimization",
+      "title": "Content review",
+      "mission": "Review the content for clarity and conversion.",
+      "depends_on": [
+        "copy"
+      ],
+      "priority": 72,
+      "review_of": "copy"
+    },
+    {
+      "key": "report",
+      "agent_type": "project_documentation",
+      "title": "Content deliverable",
+      "mission": "Write docs/CONTENT.md containing the approved content.",
+      "depends_on": [
+        "copy_review"
+      ],
+      "priority": 50
+    }
+  ]
+}

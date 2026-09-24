@@ -1,0 +1,45 @@
+{
+  "name": "requirement-extraction",
+  "version": "1.0",
+  "title": "Requirement Extraction",
+  "category": "client",
+  "description": "Extract goals, pages, features, brand requirements, constraints, deadlines, assets and missing information.",
+  "when_to_use": "After intake, and whenever new client material arrives.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "proposal"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Each gap: why it matters, a safe default, and whether the client must confirm before launch.",
+    "Turn requirements into testable acceptance criteria (they feed the scorecard)."
+  ],
+  "expected_outputs": [
+    "gaps",
+    "acceptance criteria"
+  ],
+  "validation": [
+    {
+      "rule": "min_items",
+      "field": "acceptance_criteria",
+      "min": 3,
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "requirements_analyst",
+    "client_intake"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

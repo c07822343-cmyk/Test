@@ -1,0 +1,287 @@
+{
+  "intent": "website_redesign",
+  "label": "Website Redesign",
+  "description": "Transform an existing site while preserving useful content and functionality; approval before the major redesign is implemented.",
+  "triggers": [
+    "redesign",
+    "new look",
+    "modernise",
+    "modernize"
+  ],
+  "required": [
+    "intake",
+    "inventory",
+    "requirements",
+    "architecture",
+    "ux",
+    "build",
+    "design_review",
+    "triage",
+    "visual_qa",
+    "final_qa",
+    "handoff"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Inspect the request and existing site",
+      "mission": "Structure the redesign request and record what the imported baseline contains. Facts only.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "inventory",
+      "agent_type": "content_research",
+      "title": "Content inventory and preservation list",
+      "mission": "Inventory existing content; list what must be preserved and what is weak.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "baseline_audit",
+      "agent_type": "seo_specialist",
+      "title": "Baseline SEO audit",
+      "mission": "Audit the imported baseline for SEO and identify equity to preserve.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "baseline_design",
+      "agent_type": "design_critic",
+      "title": "Baseline design critique",
+      "mission": "What works and must be preserved; what hurts hierarchy, UX and polish.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "baseline_visual",
+      "agent_type": "visual_qa",
+      "title": "Baseline visual QA",
+      "mission": "Render the current site at all viewports and record its visual problems (baseline for comparison).",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "requirements",
+      "agent_type": "requirements_analyst",
+      "title": "Redesign requirements",
+      "mission": "Consolidate audits into prioritised redesign requirements and acceptance criteria.",
+      "depends_on": [
+        "inventory",
+        "baseline_audit",
+        "baseline_design",
+        "baseline_visual"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "brand",
+      "agent_type": "brand_voice",
+      "title": "Brand voice continuity",
+      "mission": "Derive the voice from the existing site; keep continuity unless asked otherwise.",
+      "depends_on": [
+        "inventory"
+      ],
+      "priority": 70
+    },
+    {
+      "key": "architecture",
+      "agent_type": "website_architect",
+      "title": "Redesign architecture",
+      "mission": "Improved structure preserving URLs and valuable content; list every change with its reason.",
+      "depends_on": [
+        "requirements"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "ux",
+      "agent_type": "ui_ux_designer",
+      "title": "Redesigned design system",
+      "mission": "Evolve the visual language into a premium, accessible system without discarding recognisable brand elements.",
+      "depends_on": [
+        "architecture",
+        "brand"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy",
+      "agent_type": "website_copywriter",
+      "title": "Copy revisions",
+      "mission": "Revise copy only where the plan requires, preserving valuable content.",
+      "depends_on": [
+        "architecture",
+        "brand",
+        "inventory"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy_review",
+      "agent_type": "conversion_optimization",
+      "title": "Conversion review",
+      "mission": "Review revised copy and structure.",
+      "depends_on": [
+        "copy"
+      ],
+      "priority": 72,
+      "review_of": "copy"
+    },
+    {
+      "key": "redesign_approval",
+      "agent_type": "main_orchestrator",
+      "title": "Approve the redesign direction",
+      "mission": "Human approval gate before the major redesign is implemented.",
+      "depends_on": [
+        "ux",
+        "copy_review",
+        "architecture"
+      ],
+      "priority": 90,
+      "approval_gate": "major_redesign"
+    },
+    {
+      "key": "build",
+      "agent_type": "frontend_developer",
+      "title": "Implement the redesign",
+      "mission": "Improve the existing implementation (current site files are provided) according to the improvement architecture, design system and approved copy. Preserve valuable existing content, URLs and brand assets; change only what the plan calls for. Return every changed file in full.",
+      "depends_on": [
+        "redesign_approval",
+        "architecture",
+        "ux",
+        "copy_review",
+        "inventory"
+      ],
+      "priority": 70
+    },
+    {
+      "key": "design_review",
+      "agent_type": "design_critic",
+      "title": "Design critique of the implementation",
+      "mission": "Strict review of the rendered implementation (hierarchy, spacing, typography, originality, polish) against the design system and ApexWeb anti-slop rules. Reject with precise fixes if it looks generic, templated or over-decorated.",
+      "depends_on": [
+        "build"
+      ],
+      "priority": 75,
+      "review_of": "build"
+    },
+    {
+      "key": "ux_review",
+      "agent_type": "ux_reviewer",
+      "title": "Independent UX review",
+      "mission": "Walk the primary journeys in the blueprint and report friction with element-level fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 62
+    },
+    {
+      "key": "bug_hunt",
+      "agent_type": "bug_finder",
+      "title": "Independent bug hunt",
+      "mission": "Find runtime errors, broken interactions and defects using the bug scan evidence.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 62
+    },
+    {
+      "key": "responsive",
+      "agent_type": "responsive_design",
+      "title": "Responsive verification",
+      "mission": "Verify behaviour at 360/768/1440px using rendered measurements; report defects with selector, viewport and CSS fix.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "accessibility",
+      "agent_type": "accessibility_specialist",
+      "title": "Accessibility audit",
+      "mission": "Audit against WCAG 2.2 AA using axe results and a manual review of semantics, keyboard flow and focus states.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "performance",
+      "agent_type": "performance_engineer",
+      "title": "Performance audit",
+      "mission": "Audit loading performance using the measured mobile probe (LCP, CLS, bytes, render-blocking) and the files; give concrete fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "seo_audit",
+      "agent_type": "seo_specialist",
+      "title": "On-page SEO audit of the implementation",
+      "mission": "Audit the built pages against the SEO strategy using the seo_audit output: metadata, headings, JSON-LD validity, internal links, sitemap/robots. Return a review with fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "triage",
+      "agent_type": "main_orchestrator",
+      "title": "Main Agent triage of review findings",
+      "mission": "Consider every independent reviewer finding. Accept the ones that are evidenced and genuinely improve the result (assign each to the right specialist with the fix); reject duplicates, subjective nitpicks and anything contradicting the blueprint, with reasons.",
+      "depends_on": [
+        "ux_review",
+        "bug_hunt",
+        "responsive",
+        "accessibility",
+        "performance",
+        "seo_audit"
+      ],
+      "priority": 82,
+      "triage": true
+    },
+    {
+      "key": "visual_qa",
+      "agent_type": "visual_qa",
+      "title": "Visual QA loop",
+      "mission": "Render desktop, tablet and mobile, analyse screenshots and region checks, compare with the previous pass, and reject with concrete fixes until no critical or major visual issue remains.",
+      "depends_on": [
+        "triage"
+      ],
+      "priority": 80,
+      "visual_qa_gate": true
+    },
+    {
+      "key": "final_qa",
+      "agent_type": "final_qa_release",
+      "title": "Final QA and release check",
+      "mission": "Run the final release checks. Approve only if there are no deterministic hard failures and no unresolved critical issues; evaluate every blueprint requirement (result.requirement_checks). Otherwise reject with the exact fixes required.",
+      "depends_on": [
+        "visual_qa"
+      ],
+      "priority": 85,
+      "qa_gate": true
+    },
+    {
+      "key": "handoff",
+      "agent_type": "project_documentation",
+      "title": "Handoff package documentation",
+      "mission": "Write docs/HANDOFF.md (what was built, structure, how to deploy and edit, every [[PLACEHOLDER]] the client must replace, open items, configuration notes) and docs/CHANGELOG.md strictly from the task log.",
+      "depends_on": [
+        "final_qa"
+      ],
+      "priority": 50
+    }
+  ]
+}

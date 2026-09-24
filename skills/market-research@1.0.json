@@ -1,0 +1,48 @@
+{
+  "name": "market-research",
+  "version": "1.0",
+  "title": "Market Research",
+  "category": "research",
+  "description": "Research an industry: common customer needs, website problems, conversion opportunities, terminology and typical service structures.",
+  "when_to_use": "New sector, demos for a business type, or strategy questions.",
+  "triggers": [
+    "industry",
+    "market",
+    "sector",
+    "niche"
+  ],
+  "intents": [
+    "new_demo",
+    "research_only",
+    "local_business_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "web_research",
+    "security_screen"
+  ],
+  "instructions": [
+    "Distinguish sector-wide general knowledge from sourced findings; classify every claim.",
+    "Capture the language customers use (for copy and SEO) and the decision criteria they apply."
+  ],
+  "expected_outputs": [
+    "customer needs",
+    "terminology",
+    "service structure"
+  ],
+  "validation": [
+    {
+      "rule": "claims_classified",
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "content_research",
+    "research_coordinator",
+    "competitive_research"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

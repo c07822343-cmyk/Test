@@ -1,0 +1,47 @@
+{
+  "name": "visual-hierarchy",
+  "version": "1.0",
+  "title": "Visual Hierarchy",
+  "category": "visual",
+  "description": "Review typography, spacing, hierarchy, composition, visual rhythm and contrast.",
+  "when_to_use": "Whenever a design or build is reviewed.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "responsive_render"
+  ],
+  "instructions": [
+    "Check that the most important element on every screen is unmistakable and that scanning order matches priority.",
+    "Check type scale consistency, spacing rhythm, alignment, grouping (proximity) and contrast between levels.",
+    "Cite selectors/sections and give the exact change (e.g. \"raise h2 to 2rem, reduce section padding to 4rem\")."
+  ],
+  "expected_outputs": [
+    "hierarchy findings with exact fixes"
+  ],
+  "validation": [
+    {
+      "rule": "review_has_actionable_fixes"
+    }
+  ],
+  "compatible_agents": [
+    "design_critic",
+    "ui_ux_designer",
+    "typography_checker",
+    "spacing_checker",
+    "color_checker",
+    "visual_qa"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

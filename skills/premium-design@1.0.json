@@ -1,0 +1,64 @@
+{
+  "name": "premium-design",
+  "version": "1.0",
+  "title": "Premium Design",
+  "category": "visual",
+  "description": "Push the visual result toward high-end, agency-quality work: disciplined typography, generous spacing, restrained palette, purposeful imagery.",
+  "when_to_use": "Any client-facing design where quality matters (always for ApexWeb demos).",
+  "triggers": [
+    "premium",
+    "high-end",
+    "luxury",
+    "agency-quality",
+    "polished",
+    "elegant"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Two type families maximum, a modular scale with clear contrast between levels, comfortable measure (45-75 characters).",
+    "Consistent spacing scale and vertical rhythm; generous white space instead of decoration.",
+    "Restrained palette: one accent used deliberately; every text/background pair passes WCAG AA.",
+    "Imagery specific to the business (or clearly art-directed placeholders) - never stock clich\u00e9s or decorative blobs."
+  ],
+  "expected_outputs": [
+    "design tokens",
+    "layout specification"
+  ],
+  "validation": [
+    {
+      "rule": "max_font_families",
+      "value": 2
+    },
+    {
+      "rule": "max_gradients",
+      "value": 3
+    },
+    {
+      "rule": "max_backdrop_filters",
+      "value": 1
+    }
+  ],
+  "compatible_agents": [
+    "ui_ux_designer",
+    "frontend_developer",
+    "design_critic",
+    "visual_qa"
+  ],
+  "sub_skills": [
+    "visual-hierarchy",
+    "anti-ai-slop"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

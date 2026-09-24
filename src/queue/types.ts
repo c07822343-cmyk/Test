@@ -31,7 +31,16 @@ export const TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   CANCELLED: ['QUEUED', 'WAITING', 'COMPLETED'],
 };
 
+export const PRIORITY_CLASSES = ['CRITICAL', 'HIGH', 'NORMAL', 'LOW', 'BACKGROUND'] as const;
+export type PriorityClass = (typeof PRIORITY_CLASSES)[number];
+/** Base numeric priority per class; tasks keep a fine-grained priority inside their band. */
+export const PRIORITY_BASE: Record<PriorityClass, number> = { CRITICAL: 100, HIGH: 80, NORMAL: 50, LOW: 30, BACKGROUND: 10 };
+export function classForPriority(p: number): PriorityClass {
+  return p >= 100 ? 'CRITICAL' : p >= 75 ? 'HIGH' : p >= 45 ? 'NORMAL' : p >= 20 ? 'LOW' : 'BACKGROUND';
+}
+
 export type ProjectStatus =
+  | 'AWAITING_APPROVAL'
   | 'PLANNING'
   | 'RUNNING'
   | 'PAUSED'
@@ -50,7 +59,7 @@ export interface TaskRow {
   agent_type: string;
   title: string;
   mission: string;
-  kind: 'root' | 'work' | 'review' | 'subtask' | 'fix' | 'qa';
+  kind: 'root' | 'work' | 'review' | 'subtask' | 'fix' | 'qa' | 'triage' | 'visual_qa' | 'approval';
   status: TaskStatus;
   optional: boolean;
   priority: number;
@@ -75,6 +84,11 @@ export interface TaskRow {
   idempotency_key: string | null;
   error: Record<string, any> | null;
   workflow_execution_id: string | null;
+  skills: string[];
+  stage: string | null;
+  priority_class: PriorityClass;
+  dedupe_key: string | null;
+  heartbeat_at: Date | null;
   created_at: Date;
   updated_at: Date;
   started_at: Date | null;
@@ -95,6 +109,15 @@ export interface ProjectRow {
   fix_cycles: number;
   approved_at: Date | null;
   approved_by: string | null;
+  mode: 'assist' | 'semi' | 'autopilot';
+  approval_gates: string[] | null;
+  dry_run: boolean;
+  stage: string;
+  skill_chain: any[] | null;
+  blueprint: Record<string, any> | null;
+  scorecard: Record<string, any> | null;
+  dry_run_report: Record<string, any> | null;
+  max_refinement_cycles: number;
   created_at: Date;
   updated_at: Date;
   completed_at: Date | null;
@@ -119,6 +142,11 @@ export interface NewTaskSpec {
   timeout_ms?: number;
   idempotency_key?: string | null;
   initial_status?: TaskStatus;
+  skills?: string[];
+  stage?: string | null;
+  priority_class?: PriorityClass;
+  /** Opt out of semantic duplicate detection (explicitly requested repeat work). */
+  allow_duplicate?: boolean;
 }
 
 /** Task object in the canonical shape exposed to users, n8n and agents. */
@@ -145,6 +173,10 @@ export function toTaskObject(t: TaskRow) {
     revision: t.revision,
     assigned_key: t.assigned_key,
     assigned_model: t.assigned_model,
+    skills: t.skills,
+    stage: t.stage,
+    priority_class: t.priority_class,
+    heartbeat_at: t.heartbeat_at,
     workflow_execution_id: t.workflow_execution_id,
     error: t.error,
     created_at: t.created_at,

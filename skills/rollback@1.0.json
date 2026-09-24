@@ -1,0 +1,34 @@
+{
+  "name": "rollback",
+  "version": "1.0",
+  "title": "Rollback",
+  "category": "devops",
+  "description": "Recover a project to a previous stable snapshot as a new commit, behind an approval gate.",
+  "when_to_use": "A change made things worse or a client wants a previous version.",
+  "triggers": [
+    "rollback",
+    "revert",
+    "undo",
+    "previous version"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "repo_inspect"
+  ],
+  "instructions": [
+    "Identify the last stable snapshot and what will be undone; rollback requires human approval and never deletes history."
+  ],
+  "expected_outputs": [
+    "rollback recommendation"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "change_reviewer",
+    "main_orchestrator"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

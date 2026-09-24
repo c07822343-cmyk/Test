@@ -1,0 +1,44 @@
+{
+  "name": "seo-content",
+  "version": "1.0",
+  "title": "SEO Content",
+  "category": "seo",
+  "description": "Search-oriented content that answers intent without keyword stuffing.",
+  "when_to_use": "Content pages, service pages, FAQs aimed at search.",
+  "triggers": [
+    "blog",
+    "content seo",
+    "rank for"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "content_only"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Match search intent; use the customer's words naturally; no keyword stuffing or doorway text."
+  ],
+  "expected_outputs": [
+    "intent-matched content"
+  ],
+  "validation": [
+    {
+      "rule": "no_banned_phrases"
+    }
+  ],
+  "compatible_agents": [
+    "website_copywriter",
+    "seo_specialist"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

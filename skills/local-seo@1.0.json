@@ -1,0 +1,47 @@
+{
+  "name": "local-seo",
+  "version": "1.0",
+  "title": "Local SEO",
+  "category": "seo",
+  "description": "Location targeting, service-area structure, local intent, contact consistency (NAP), LocalBusiness schema and service/location architecture.",
+  "when_to_use": "Local and service-area businesses.",
+  "triggers": [
+    "local seo",
+    "near me",
+    "service area",
+    "google business"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "seo_audit"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "seo_audit"
+  ],
+  "instructions": [
+    "NAP identical everywhere; unknown values are placeholders, never guesses.",
+    "Service-area pages only with genuinely local content; no doorway pages.",
+    "LocalBusiness/HVACBusiness (or appropriate subtype) schema with areaServed."
+  ],
+  "expected_outputs": [
+    "local SEO plan",
+    "schema fields"
+  ],
+  "validation": [
+    {
+      "rule": "placeholders_for_unknown_contact"
+    }
+  ],
+  "compatible_agents": [
+    "local_seo_specialist",
+    "seo_specialist",
+    "local_seo_checker"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,44 @@
+{
+  "name": "website-redesign",
+  "version": "1.0",
+  "title": "Website Redesign",
+  "category": "website",
+  "description": "Transform an existing site visually and structurally while preserving useful content and functionality.",
+  "when_to_use": "An existing site looks dated or converts poorly and the client wants a new look.",
+  "triggers": [
+    "redesign",
+    "new look",
+    "modernize",
+    "modernise",
+    "refresh"
+  ],
+  "intents": [
+    "website_redesign"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Redesign presentation, hierarchy and UX; carry over content, URLs and functionality that still serve users.",
+    "Present the redesign direction before full implementation when an approval gate is configured.",
+    "Every removed element needs a reason in the change log."
+  ],
+  "expected_outputs": [
+    "redesign direction",
+    "change log"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_architect",
+    "ui_ux_designer",
+    "frontend_developer",
+    "design_critic"
+  ],
+  "sub_skills": [
+    "existing-website-transformation",
+    "visual-hierarchy",
+    "premium-design"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

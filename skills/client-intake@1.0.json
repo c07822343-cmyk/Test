@@ -1,0 +1,52 @@
+{
+  "name": "client-intake",
+  "version": "1.0",
+  "title": "Client Intake",
+  "category": "client",
+  "description": "Turn messy client messages into structured requirements.",
+  "when_to_use": "Every new project.",
+  "triggers": [],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "seo_audit",
+    "proposal",
+    "website_audit",
+    "landing_page",
+    "competitor_research",
+    "prelaunch_qa"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "site_snapshot",
+    "file_analyzer"
+  ],
+  "instructions": [
+    "Record only what the client actually said; everything else goes to unknowns.",
+    "Name the primary conversion goal and audience segments explicitly."
+  ],
+  "expected_outputs": [
+    "structured specification"
+  ],
+  "validation": [
+    {
+      "rule": "required_result_fields",
+      "fields": [
+        "goals",
+        "unknowns"
+      ]
+    }
+  ],
+  "compatible_agents": [
+    "client_intake"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

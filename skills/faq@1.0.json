@@ -1,0 +1,39 @@
+{
+  "name": "faq",
+  "version": "1.0",
+  "title": "FAQ",
+  "category": "content",
+  "description": "Useful FAQs answering real customer questions from verified information.",
+  "when_to_use": "Service businesses, complex offers, SEO support content.",
+  "triggers": [
+    "faq",
+    "questions"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Questions come from research (customer questions) not invention; answers state only confirmed facts or general guidance labelled as such.",
+    "Mark answers that need client confirmation with placeholders."
+  ],
+  "expected_outputs": [
+    "question/answer pairs"
+  ],
+  "validation": [
+    {
+      "rule": "no_unsupported_claims"
+    }
+  ],
+  "compatible_agents": [
+    "website_copywriter",
+    "content_research",
+    "seo_specialist"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

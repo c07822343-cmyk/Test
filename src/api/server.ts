@@ -17,6 +17,16 @@ import { errorMessage, logger } from '../util/log.ts';
 import type { StepContext } from '../worker/executor.ts';
 import { collectMetrics, renderMetricsText } from './metrics.ts';
 import { cancelTask, overrideResult, reassignTask, retryTask } from './overrides.ts';
+import { activityFeed } from './activity.ts';
+import { usageReport } from './usage.ts';
+import { COMMANDS } from '../orchestrator/commands.ts';
+import { GATES, MODES } from '../orchestrator/approvals.ts';
+import { templates } from '../orchestrator/templates.ts';
+import { computeScorecard } from '../quality/scorecard.ts';
+import { claimsByClass, projectSources } from '../research/provenance.ts';
+import { analyzeFile, extractZip } from '../files/intelligence.ts';
+import { screenText, recordScreen } from '../security/screen.ts';
+import { TOOLS, TOOL_PROFILES } from '../tools/catalog.ts';
 
 const log = logger('api');
 const DASHBOARD = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'dashboard', 'index.html');
@@ -29,6 +39,13 @@ function safeEqual(a: string, b: string): boolean {
 
 export function signLink(secret: string, projectId: string, resource: string, expiresAt: number): string {
   return createHmac('sha256', secret).update(`${projectId}:${resource}:${expiresAt}`).digest('base64url');
+}
+
+let n8nBeatAt = 0;
+function beatN8n(s: Services): void {
+  if (Date.now() - n8nBeatAt < 5_000) return;
+  n8nBeatAt = Date.now();
+  void s.heartbeats.beat('n8n', 'n8n').catch(() => undefined);
 }
 
 function stepCtx(req: FastifyRequest, fallbackActor: string): StepContext {
@@ -57,6 +74,10 @@ const MemoryBody = z.object({ value: z.any() });
 export async function buildServer(s: Services): Promise<FastifyInstance> {
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 });
   const token = s.config.apiToken;
+  app.addContentTypeParser(['application/octet-stream', 'application/zip', 'application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'text/plain', 'text/markdown'], { parseAs: 'buffer', bodyLimit: 30 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+  app.addHook('preHandler', async (req) => {
+    if (req.headers['x-n8n-execution-id']) beatN8n(s);
+  });
 
   app.setErrorHandler((err: any, req, reply) => {
     if (err instanceof ZodError) return reply.status(400).send({ error: 'validation_error', issues: err.issues.slice(0, 10) });
@@ -136,14 +157,22 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
     const p = await s.projects.get(req.params.id);
     return { project_id: p.id, status: p.status, intent: interp.intent, name: interp.project_name, needs_clarification: p.status === 'NEEDS_ATTENTION', questions: interp.clarification_questions };
   });
+  app.post('/v1/main/projects/:id/blueprint', async (req: any) => {
+    const bp = await s.mainAgent.blueprint(req.params.id);
+    return { project_id: req.params.id, pages: bp.pages.map((p) => p.path), requirements: bp.requirements.length, open_questions: bp.open_questions };
+  });
+  app.post('/v1/main/projects/:id/skills', async (req: any) => {
+    const chain = await s.mainAgent.selectSkills(req.params.id);
+    return { project_id: req.params.id, skills: chain };
+  });
   app.post('/v1/main/projects/:id/plan', async (req: any) => {
     const plan = await s.mainAgent.plan(req.params.id);
-    return { project_id: req.params.id, source: plan.source, tasks: plan.tasks.map((t) => ({ key: t.key, agent_type: t.agent_type, depends_on: t.depends_on, gate: t.review_of ?? (t.qa_gate ? 'qa' : null) })), levels: plan.levels, warnings: plan.warnings };
+    return { project_id: req.params.id, source: plan.source, tasks: plan.tasks.map((t) => ({ key: t.key, agent_type: t.agent_type, depends_on: t.depends_on, skills: t.skills, gate: t.review_of ?? (t.qa_gate ? 'qa' : t.visual_qa_gate ? 'visual_qa' : t.approval_gate ?? (t.triage ? 'triage' : null)) })), levels: plan.levels, warnings: plan.warnings, dry_run_report: plan.dry_run_report };
   });
   app.post('/v1/main/projects/:id/enqueue', async (req: any) => {
-    const tasks = await s.mainAgent.enqueue(req.params.id, stepCtx(req, 'main_agent').actor);
+    const { tasks, awaiting_approval } = await s.mainAgent.enqueue(req.params.id, stepCtx(req, 'main_agent').actor);
     const ready = tasks.filter((t) => t.status === 'QUEUED').map((t) => t.plan_key);
-    return { project_id: req.params.id, enqueued: tasks.length, ready_now: ready, waiting: tasks.length - ready.length };
+    return { project_id: req.params.id, enqueued: tasks.length, ready_now: ready, waiting: tasks.length - ready.length, awaiting_approval };
   });
   app.post('/v1/main/projects/:id/fail-planning', async (req: any) => {
     const body = z.object({ message: z.string().max(2000) }).parse(req.body);
@@ -274,6 +303,125 @@ export async function buildServer(s: Services): Promise<FastifyInstance> {
   app.post('/v1/tasks/:id/fail', async (req: any) => {
     const body = FailBody.parse(req.body);
     return s.executor.fail(req.params.id, { errorClass: body.error_class, message: body.message, retryAfterMs: body.retry_after_ms ?? null }, stepCtx(req, 'n8n'));
+  });
+
+  // ------------------------------------------------------------ AGENCY OS
+  app.get('/v1/commands', async () => ({ commands: COMMANDS }));
+  app.get('/v1/templates', async () => ({ templates: templates().map((t) => ({ intent: t.intent, label: t.label, description: t.description, tasks: t.tasks.length, required: t.required, source: t.source })) }));
+  app.get('/v1/skills', async () => ({ skills: s.skills.catalog(), load: s.extensions.skills }));
+  app.get('/v1/skills/:name', async (req: any) => {
+    const d = s.skills.resolve(req.params.name);
+    if (!d) throw new AppError('not_found', `Skill ${req.params.name} not found`, 404);
+    return { skill: d, versions: s.skills.catalog().find((c) => c.name === d.name)?.versions ?? [] };
+  });
+  app.post('/v1/skills', async (req) => ({ skill: await s.skills.register(req.body, 'user') }));
+  app.post('/v1/skills/:name/:version/:action', async (req: any) => {
+    const action = z.enum(['enable', 'disable']).parse(req.params.action);
+    await s.skills.setEnabled(req.params.name, req.params.version, action === 'enable');
+    await s.projects.audit('user', `skill.${action}`, 'skill', `${req.params.name}@${req.params.version}`);
+    return { ok: true };
+  });
+  /** Every skill is directly callable: runs it as a task with a compatible agent (in a project or a new quick project). */
+  app.post('/v1/skills/:name/run', async (req: any) => {
+    const body = z.object({ project_id: z.string().optional(), agent_type: z.string().optional(), mission: z.string().min(5).max(4000), priority_class: z.enum(['CRITICAL', 'HIGH', 'NORMAL', 'LOW', 'BACKGROUND']).optional() }).parse(req.body);
+    const d = s.skills.resolve(req.params.name);
+    if (!d) throw new AppError('not_found', `Skill ${req.params.name} not found`, 404);
+    const agent = body.agent_type ?? d.compatible_agents.find((a) => a !== 'main_orchestrator') ?? d.compatible_agents[0];
+    if (!d.compatible_agents.includes(agent)) throw new AppError('incompatible_agent', `${agent} is not compatible with ${d.name}`);
+    let projectId = body.project_id;
+    if (!projectId) {
+      const { project } = await s.mainAgent.createProject(`Skill run ${d.name}: ${body.mission}`, null, 'user', { intentHint: 'quick_task' });
+      await s.db.query(`UPDATE projects SET status = 'RUNNING', plan = $2 WHERE id = $1`, [project.id, JSON.stringify({ source: 'skill_run', tasks: [], levels: [] })]);
+      await s.db.query(`UPDATE tasks SET status = 'WAITING' WHERE project_id = $1 AND kind = 'root'`, [project.id]);
+      projectId = project.id;
+    }
+    const [task] = await s.mainAgent.extendProject(projectId, [{ key: 'skill', agent_type: agent, title: `${d.title}: ${body.mission.slice(0, 80)}`, mission: body.mission, depends_on: [], priority: 60, priority_class: body.priority_class, skills: [`${d.name}@${d.version}`] }], 'skill', 'user');
+    await s.db.query(`UPDATE tasks SET skills = (SELECT array_agg(DISTINCT x) FROM unnest(skills || $2::text[]) x) WHERE id = $1`, [task.id, [`${d.name}@${d.version}`]]);
+    return { project_id: projectId, task_id: task.id, agent_type: agent, skill: `${d.name}@${d.version}` };
+  });
+
+  app.get('/v1/approvals', async (req: any) => ({ approvals: await s.approvals.list({ projectId: req.query.project_id ?? null, status: req.query.status ?? null }) }));
+  app.post('/v1/approvals/:id/:decision', async (req: any) => {
+    const decision = z.enum(['approve', 'reject']).parse(req.params.decision);
+    const note = z.object({ note: z.string().max(2000).optional() }).parse(req.body ?? {}).note ?? null;
+    return { result: await s.mainAgent.resolveApproval(req.params.id, decision === 'approve' ? 'approved' : 'rejected', 'user', note) };
+  });
+  app.post('/v1/projects/:id/mode', async (req: any) => {
+    const body = z.object({ mode: z.enum(MODES), gates: z.array(z.enum(GATES)).nullable().optional() }).parse(req.body);
+    return { project: await s.mainAgent.setMode(req.params.id, body.mode, 'user', body.gates) };
+  });
+  app.get('/v1/projects/:id/blueprint', async (req: any) => ({ blueprint: (await s.projects.get(req.params.id)).blueprint }));
+  app.get('/v1/projects/:id/dry-run', async (req: any) => ({ dry_run: (await s.projects.get(req.params.id)).dry_run_report }));
+  app.get('/v1/projects/:id/scorecard', async (req: any) => ({ scorecard: (await s.projects.get(req.params.id)).scorecard }));
+  app.post('/v1/projects/:id/scorecard', async (req: any) => {
+    const card = await computeScorecard(s.db, s.artifacts, req.params.id, (await s.memory.get<string[]>('project', req.params.id, 'facts')) ?? []);
+    await s.db.query('UPDATE projects SET scorecard = $2 WHERE id = $1', [req.params.id, JSON.stringify(card)]);
+    return { scorecard: card };
+  });
+  app.get('/v1/projects/:id/claims', async (req: any) => ({ claims: await claimsByClass(s.db, req.params.id), facts: await s.memory.get('project', req.params.id, 'facts') }));
+  app.get('/v1/projects/:id/sources', async (req: any) => ({ sources: await projectSources(s.db, req.params.id) }));
+  app.get('/v1/projects/:id/stages', async (req: any) => ({ stage: (await s.projects.get(req.params.id)).stage, history: await s.lifecycle.history(req.params.id) }));
+  app.get('/v1/projects/:id/snapshots', async (req: any) => ({ snapshots: await s.repos.list(req.params.id), commits: await s.repos.history(req.params.id) }));
+  app.get('/v1/projects/:id/diff', async (req: any) => s.repos.diff(req.params.id, req.query.from, req.query.to));
+  app.post('/v1/projects/:id/rollback', async (req: any) => {
+    const body = z.object({ snapshot_id: z.string() }).parse(req.body);
+    return { approval_id: await s.mainAgent.requestRollback(req.params.id, body.snapshot_id, 'user') };
+  });
+  app.get('/v1/projects/:id/retrospective', async (req: any) => ({ retrospective: (await s.db.query('SELECT report, created_at FROM retrospectives WHERE project_id = $1', [req.params.id])).rows[0] ?? null }));
+  app.get('/v1/projects/:id/files', async (req: any) => ({ files: (await s.db.query('SELECT path, kind, analysis, created_at FROM file_analyses WHERE project_id = $1 ORDER BY path', [req.params.id])).rows }));
+  /** Client file upload (raw body). ZIP archives are extracted safely; every file is analysed and security-screened. */
+  app.post('/v1/projects/:id/files', async (req: any) => {
+    const name = String(req.query.name ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
+    if (!name || !Buffer.isBuffer(req.body)) throw new AppError('bad_upload', 'Send the file as the raw request body with ?name=<filename>');
+    await s.projects.get(req.params.id);
+    const entries = /\.zip$/i.test(name) ? extractZip(req.body).map((e) => ({ path: `${name.replace(/\.zip$/i, '')}/${e.path}`, data: e.data })) : [{ path: name, data: req.body as Buffer }];
+    const stored: unknown[] = [];
+    for (const e of entries.slice(0, 500)) {
+      try {
+        const meta = await s.artifacts.save({ projectId: req.params.id, taskId: null, path: `client/${e.path.replace(/ /g, '_')}`, content: e.data, kind: 'client_file', createdBy: 'user:upload' });
+        const analysis = await analyzeFile(e.path, e.data);
+        if (analysis.text_excerpt) await recordScreen(s.db, screenText(analysis.text_excerpt, `upload ${e.path}`), { projectId: req.params.id, kind: 'client_file' });
+        stored.push({ path: meta.path, kind: analysis.kind, bytes: analysis.bytes, dimensions: analysis.dimensions, pages: analysis.pages });
+      } catch (err) {
+        stored.push({ path: e.path, error: errorMessage(err) });
+      }
+    }
+    await s.projects.audit('user', 'files.upload', 'project', req.params.id, { name, files: stored.length });
+    return { files: stored };
+  });
+
+  app.get('/v1/activity', async (req: any) => activityFeed(s.db, { projectId: req.query.project_id ?? null, sinceId: Number(req.query.since ?? 0), limit: Number(req.query.limit ?? 200) }));
+  /** Server-sent events: pushes new activity as it is recorded (fetch with the Authorization header). */
+  app.get('/v1/activity/stream', async (req: any, reply) => {
+    reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+    let cursor = Number(req.query.since ?? 0);
+    const projectId = req.query.project_id ?? null;
+    let closed = false;
+    req.raw.on('close', () => (closed = true));
+    if (!cursor) {
+      const first = await activityFeed(s.db, { projectId, limit: 100 });
+      for (const i of first.items) reply.raw.write(`data: ${JSON.stringify(i)}\n\n`);
+      cursor = first.cursor;
+    }
+    while (!closed) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const next = await activityFeed(s.db, { projectId, sinceId: cursor, limit: 200 }).catch(() => ({ items: [], cursor }));
+      for (const i of next.items) reply.raw.write(`data: ${JSON.stringify(i)}\n\n`);
+      cursor = next.cursor;
+      reply.raw.write(': keep-alive\n\n');
+    }
+    return reply;
+  });
+  app.get('/v1/usage', async (req: any) => usageReport(s.db, req.query.project_id ?? null));
+  app.get('/v1/workers', async () => ({ workers: await s.heartbeats.list(), watchdog: s.watchdog.lastRun }));
+  app.post('/v1/watchdog/run', async () => ({ recovered: await s.watchdog.run() }));
+  app.get('/v1/security/events', async (req: any) => ({ events: (await s.db.query('SELECT * FROM security_events WHERE ($1::text IS NULL OR project_id = $1) ORDER BY id DESC LIMIT 200', [req.query.project_id ?? null])).rows }));
+  app.get('/v1/tools', async () => ({ tools: TOOLS, profiles: TOOL_PROFILES }));
+  app.get('/v1/knowledge', async (req: any) => ({ knowledge: await s.knowledge.list(req.query.status ?? null, req.query.category ?? null) }));
+  app.post('/v1/knowledge', async (req: any) => ({ entry: await s.knowledge.add(req.body, 'active', 'user') }));
+  app.post('/v1/knowledge/:id/:decision', async (req: any) => {
+    const decision = z.enum(['promote', 'reject', 'archive']).parse(req.params.decision);
+    return { entry: await s.knowledge.decide(req.params.id, decision, 'user') };
   });
 
   // ------------------------------------------------------ KEYS / MODELS / AGENTS

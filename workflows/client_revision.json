@@ -1,0 +1,57 @@
+{
+  "intent": "client_revision",
+  "label": "Client Revision",
+  "description": "Convert client feedback into precise changes, review the diff, re-run QA.",
+  "triggers": [
+    "change",
+    "revise",
+    "update the"
+  ],
+  "required": [
+    "revise",
+    "verify",
+    "final_qa"
+  ],
+  "tasks": [
+    {
+      "key": "revise",
+      "agent_type": "revision_manager",
+      "title": "Plan the requested changes",
+      "mission": "Convert the client feedback into atomic subtasks for the right specialists; preserve everything not asked to change.",
+      "depends_on": [],
+      "priority": 90
+    },
+    {
+      "key": "verify",
+      "agent_type": "visual_qa",
+      "title": "Verify the revisions visually",
+      "mission": "Render every viewport and confirm the requested changes landed without regressions.",
+      "depends_on": [
+        "revise"
+      ],
+      "priority": 85,
+      "visual_qa_gate": true
+    },
+    {
+      "key": "final_qa",
+      "agent_type": "final_qa_release",
+      "title": "Revision QA",
+      "mission": "Release checks after the revision.",
+      "depends_on": [
+        "verify"
+      ],
+      "priority": 85,
+      "qa_gate": true
+    },
+    {
+      "key": "notes",
+      "agent_type": "project_documentation",
+      "title": "Revision notes",
+      "mission": "Update docs/CHANGELOG.md with the changes made.",
+      "depends_on": [
+        "final_qa"
+      ],
+      "priority": 50
+    }
+  ]
+}

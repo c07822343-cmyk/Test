@@ -1,0 +1,34 @@
+{
+  "name": "asset-organizer",
+  "version": "1.0",
+  "title": "Asset Organizer",
+  "category": "files",
+  "description": "Classify and organise images, icons, logos, fonts and documents into a clean structure.",
+  "when_to_use": "Client supplied assets.",
+  "triggers": [
+    "assets",
+    "images",
+    "logos",
+    "photos"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "asset_organizer"
+  ],
+  "instructions": [
+    "Classify each asset by role and propose target paths (assets/logos, assets/icons, assets/photos, assets/fonts, docs/)."
+  ],
+  "expected_outputs": [
+    "asset manifest"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "file_asset_analyst",
+    "ui_ux_designer"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,41 @@
+{
+  "name": "service-page",
+  "version": "1.0",
+  "title": "Service Page",
+  "category": "content",
+  "description": "Complete service-page structures: problem, service description, process, what is included, pricing approach, FAQs, service area and CTA.",
+  "when_to_use": "Businesses that sell distinct services (most local businesses).",
+  "triggers": [
+    "service page",
+    "services"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "One page per core service with a unique angle; no duplicated boilerplate across service pages.",
+    "Include the process (what happens when you call), what is included, and service-specific FAQs."
+  ],
+  "expected_outputs": [
+    "service page outline and copy"
+  ],
+  "validation": [
+    {
+      "rule": "no_unsupported_claims",
+      "severity": "warning"
+    }
+  ],
+  "compatible_agents": [
+    "website_architect",
+    "website_copywriter",
+    "component_builder",
+    "seo_specialist"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

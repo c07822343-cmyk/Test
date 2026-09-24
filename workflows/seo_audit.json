@@ -1,0 +1,56 @@
+{
+  "intent": "seo_audit",
+  "label": "SEO Audit",
+  "description": "Technical, on-page and local SEO audit with an action plan.",
+  "triggers": [
+    "seo audit",
+    "rankings",
+    "search visibility"
+  ],
+  "required": [
+    "intake",
+    "seo",
+    "report"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the audit request",
+      "mission": "Structure the SEO audit request and record what was supplied.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "seo",
+      "agent_type": "seo_specialist",
+      "title": "Technical and on-page SEO audit",
+      "mission": "Audit thoroughly (delegate to metadata/schema/internal-link/local checkers where useful) and produce prioritised recommendations.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "local_seo",
+      "agent_type": "local_seo_specialist",
+      "title": "Local SEO review",
+      "mission": "Review local SEO signals and opportunities.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 70
+    },
+    {
+      "key": "report",
+      "agent_type": "project_documentation",
+      "title": "SEO audit report",
+      "mission": "Write docs/SEO-AUDIT.md with a prioritised action plan, strictly from the task outputs.",
+      "depends_on": [
+        "seo",
+        "local_seo"
+      ],
+      "priority": 50
+    }
+  ]
+}

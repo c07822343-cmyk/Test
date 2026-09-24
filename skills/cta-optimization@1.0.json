@@ -1,0 +1,42 @@
+{
+  "name": "cta-optimization",
+  "version": "1.0",
+  "title": "CTA Optimization",
+  "category": "content",
+  "description": "Review and improve calls-to-action: clarity, placement, hierarchy and friction.",
+  "when_to_use": "Any page with a conversion goal.",
+  "triggers": [
+    "cta",
+    "call to action",
+    "conversion",
+    "leads"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Primary CTA verb + outcome (\"Book a furnace inspection\"), visible above the fold on mobile, repeated after proof.",
+    "One primary CTA style per view; secondary paths (phone) visually subordinate but always reachable."
+  ],
+  "expected_outputs": [
+    "CTA inventory with fixes"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "conversion_optimization",
+    "website_copywriter",
+    "ux_reviewer"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

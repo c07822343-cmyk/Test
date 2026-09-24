@@ -1,0 +1,105 @@
+{
+  "intent": "prelaunch_qa",
+  "label": "Pre-Launch QA",
+  "description": "Full release readiness check of an existing build.",
+  "triggers": [
+    "pre-launch",
+    "launch",
+    "go live",
+    "release"
+  ],
+  "required": [
+    "triage",
+    "visual_qa",
+    "final_qa"
+  ],
+  "tasks": [
+    {
+      "key": "bug_hunt",
+      "agent_type": "bug_finder",
+      "title": "Bug hunt",
+      "mission": "Find runtime and interaction defects.",
+      "depends_on": [],
+      "priority": 85
+    },
+    {
+      "key": "responsive",
+      "agent_type": "responsive_design",
+      "title": "Responsive check",
+      "mission": "Viewport verification.",
+      "depends_on": [],
+      "priority": 80
+    },
+    {
+      "key": "accessibility",
+      "agent_type": "accessibility_specialist",
+      "title": "Accessibility check",
+      "mission": "WCAG 2.2 AA.",
+      "depends_on": [],
+      "priority": 80
+    },
+    {
+      "key": "performance",
+      "agent_type": "performance_engineer",
+      "title": "Performance check",
+      "mission": "Measured performance.",
+      "depends_on": [],
+      "priority": 80
+    },
+    {
+      "key": "seo_audit",
+      "agent_type": "seo_specialist",
+      "title": "SEO check",
+      "mission": "Technical SEO readiness.",
+      "depends_on": [],
+      "priority": 80
+    },
+    {
+      "key": "triage",
+      "agent_type": "main_orchestrator",
+      "title": "Main Agent triage",
+      "mission": "Accept evidenced findings that must be fixed before launch.",
+      "depends_on": [
+        "bug_hunt",
+        "responsive",
+        "accessibility",
+        "performance",
+        "seo_audit"
+      ],
+      "priority": 85,
+      "triage": true
+    },
+    {
+      "key": "visual_qa",
+      "agent_type": "visual_qa",
+      "title": "Visual QA loop",
+      "mission": "Render, analyse, compare and loop until clean or the limit is reached.",
+      "depends_on": [
+        "triage"
+      ],
+      "priority": 80,
+      "visual_qa_gate": true
+    },
+    {
+      "key": "final_qa",
+      "agent_type": "final_qa_release",
+      "title": "Release decision",
+      "mission": "Final release checks including deployment readiness.",
+      "depends_on": [
+        "visual_qa"
+      ],
+      "priority": 85,
+      "qa_gate": true
+    },
+    {
+      "key": "handoff",
+      "agent_type": "project_documentation",
+      "title": "Launch notes",
+      "mission": "Write docs/LAUNCH-CHECKLIST.md from the task log.",
+      "depends_on": [
+        "final_qa"
+      ],
+      "priority": 50
+    }
+  ]
+}

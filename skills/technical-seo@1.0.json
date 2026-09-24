@@ -1,0 +1,56 @@
+{
+  "name": "technical-seo",
+  "version": "1.0",
+  "title": "Technical SEO",
+  "category": "seo",
+  "description": "Check and implement title tags, meta descriptions, headings, canonicals, robots, sitemap, internal linking, structured data and image alt text.",
+  "when_to_use": "Every website build and audit.",
+  "triggers": [
+    "seo",
+    "search",
+    "google",
+    "ranking"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "seo_audit"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "seo_audit",
+    "static_site_audit"
+  ],
+  "instructions": [
+    "Titles 30-60 chars, descriptions 70-160, unique per page; one h1; logical heading order.",
+    "Valid JSON-LD with appropriate types; no invented ratings/reviews in schema.",
+    "Canonical, robots.txt, sitemap.xml, descriptive internal anchors, alt text on meaningful images."
+  ],
+  "expected_outputs": [
+    "metadata spec",
+    "schema",
+    "link plan"
+  ],
+  "validation": [
+    {
+      "rule": "seo_hard_failures_zero"
+    }
+  ],
+  "compatible_agents": [
+    "seo_specialist",
+    "metadata_checker",
+    "schema_checker",
+    "internal_link_checker",
+    "frontend_developer",
+    "website_debugger"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

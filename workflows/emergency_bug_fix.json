@@ -1,0 +1,75 @@
+{
+  "intent": "emergency_bug_fix",
+  "label": "Emergency Bug Fix",
+  "description": "Critical-priority fix of a production defect with change review and regression checks.",
+  "triggers": [
+    "urgent",
+    "broken",
+    "emergency",
+    "down",
+    "bug",
+    "not working"
+  ],
+  "required": [
+    "reproduce",
+    "fix",
+    "change_review",
+    "regression"
+  ],
+  "tasks": [
+    {
+      "key": "reproduce",
+      "agent_type": "bug_finder",
+      "title": "Reproduce and locate the bug",
+      "mission": "Reproduce the reported defect from the bug scan evidence and locate the root cause (file, selector, line).",
+      "depends_on": [],
+      "priority": 100,
+      "priority_class": "CRITICAL"
+    },
+    {
+      "key": "fix",
+      "agent_type": "website_debugger",
+      "title": "Fix the defect",
+      "mission": "Apply the smallest change that fixes the root cause; do not touch unrelated code.",
+      "depends_on": [
+        "reproduce"
+      ],
+      "priority": 100,
+      "priority_class": "CRITICAL"
+    },
+    {
+      "key": "change_review",
+      "agent_type": "change_reviewer",
+      "title": "Review the fix diff",
+      "mission": "Review the diff for correctness, regressions and unintended deletions.",
+      "depends_on": [
+        "fix"
+      ],
+      "priority": 100,
+      "review_of": "fix",
+      "priority_class": "CRITICAL"
+    },
+    {
+      "key": "regression",
+      "agent_type": "visual_qa",
+      "title": "Regression visual check",
+      "mission": "Render all viewports and confirm nothing regressed.",
+      "depends_on": [
+        "change_review"
+      ],
+      "priority": 95,
+      "visual_qa_gate": true,
+      "priority_class": "CRITICAL"
+    },
+    {
+      "key": "notes",
+      "agent_type": "project_documentation",
+      "title": "Fix notes",
+      "mission": "Write docs/CHANGELOG.md entry describing the defect, root cause and fix.",
+      "depends_on": [
+        "regression"
+      ],
+      "priority": 60
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "pre-launch-qa",
+  "version": "1.0",
+  "title": "Pre-Launch QA",
+  "category": "qa",
+  "description": "Release checklist: functionality, links, forms, metadata, accessibility, responsiveness, performance, placeholders and deployment readiness.",
+  "when_to_use": "Before handoff or launch.",
+  "triggers": [
+    "launch",
+    "pre-launch",
+    "release"
+  ],
+  "intents": [
+    "prelaunch_qa",
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "static_site_audit",
+    "seo_audit",
+    "accessibility_axe",
+    "bug_scan"
+  ],
+  "instructions": [
+    "Deterministic hard failures block release; list exactly what must be fixed; placeholders acceptable for demos only if listed."
+  ],
+  "expected_outputs": [
+    "release verdict",
+    "blocking issues"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "final_qa_release",
+    "qa_director",
+    "bug_finder",
+    "link_checker"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

@@ -1,0 +1,49 @@
+{
+  "name": "existing-website-transformation",
+  "version": "1.0",
+  "title": "Existing Website Transformation",
+  "category": "website",
+  "description": "Analyse an existing website first, then improve it incrementally without blindly rebuilding everything.",
+  "when_to_use": "The client already has a site (URL, files or repository) and wants it better rather than replaced.",
+  "triggers": [
+    "existing site",
+    "current website",
+    "improve",
+    "our site",
+    "revamp"
+  ],
+  "intents": [
+    "website_improvement",
+    "website_redesign"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "site_snapshot",
+    "static_site_audit"
+  ],
+  "instructions": [
+    "Start from the imported baseline: inventory what exists (pages, URLs, content, brand assets, functionality) before proposing changes.",
+    "Classify every element as keep / improve / replace, with the reason; default to keep.",
+    "Preserve URLs, valuable copy, SEO equity and working functionality unless the brief explicitly asks otherwise.",
+    "Change only what the improvement plan specifies and record every change."
+  ],
+  "expected_outputs": [
+    "keep/improve/replace inventory",
+    "change log with reasons"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "website_architect",
+    "frontend_developer",
+    "content_research",
+    "client_intake",
+    "requirements_analyst",
+    "website_debugger"
+  ],
+  "sub_skills": [
+    "website-audit"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

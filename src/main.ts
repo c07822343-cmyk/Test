@@ -18,6 +18,10 @@ async function main() {
   }
   const recovered = await recoverAfterRestart(s);
   s.driver.start();
+  s.watchdog.start();
+  const beat = () => void s.heartbeats.beat(config.workerId, 'core', 0, { driver: config.executionDriver }).catch(() => undefined);
+  beat();
+  setInterval(beat, 15_000).unref();
   const app = await buildServer(s);
   await app.listen({ host: config.host, port: config.port });
   log.info('ApexWeb OS core listening', {
@@ -26,11 +30,16 @@ async function main() {
     nvidia_keys: config.nvidia.keys.map((k) => k.id),
     rpm_per_key: config.nvidia.rpmPerKey,
     recovered,
+    agents_from_extensions: s.extensions.agents,
+    skills: s.extensions.skills.loaded,
+    templates: s.extensions.templates.loaded,
+    search_provider: s.search.name,
   });
 
   const shutdown = async (signal: string) => {
     log.info('shutting down', { signal });
     await app.close();
+    s.watchdog.stop();
     await s.driver.stop({ abort: true, timeoutMs: 20_000 } as any);
     s.keyPool.stop();
     await s.db.end();

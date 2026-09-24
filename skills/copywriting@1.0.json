@@ -1,0 +1,57 @@
+{
+  "name": "copywriting",
+  "version": "1.0",
+  "title": "Copywriting",
+  "category": "content",
+  "description": "Natural, specific website copy in the approved voice, built on verified facts.",
+  "when_to_use": "Any page copy, microcopy or content deliverable.",
+  "triggers": [
+    "copy",
+    "content",
+    "text",
+    "wording"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website",
+    "content_only"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Short sentences, active voice, concrete nouns: the service, the area, the next step.",
+    "Only confirmed facts; unknowns as [[PLACEHOLDER: ...]] listed in unresolved_issues.",
+    "Every CTA states exactly what happens next."
+  ],
+  "expected_outputs": [
+    "page copy per section"
+  ],
+  "validation": [
+    {
+      "rule": "no_banned_phrases"
+    },
+    {
+      "rule": "no_unsupported_claims"
+    },
+    {
+      "rule": "placeholders_for_unknown_contact"
+    }
+  ],
+  "compatible_agents": [
+    "website_copywriter",
+    "brand_voice",
+    "proposal_agent",
+    "component_builder"
+  ],
+  "sub_skills": [
+    "anti-ai-slop"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

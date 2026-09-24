@@ -14,6 +14,12 @@ export const PlanTaskSchema = z.object({
   optional: z.boolean().optional(),
   review_of: z.string().nullable().optional(),
   qa_gate: z.boolean().optional(),
+  visual_qa_gate: z.boolean().optional(),
+  triage: z.boolean().optional(),
+  approval_gate: z.string().nullable().optional(),
+  priority_class: z.enum(['CRITICAL', 'HIGH', 'NORMAL', 'LOW', 'BACKGROUND']).optional(),
+  stage: z.string().optional(),
+  skills: z.array(z.string()).optional(),
 });
 export const PlanSchema = z.object({ tasks: z.array(PlanTaskSchema).min(1).max(40), rationale: z.string().max(4000).optional() });
 
@@ -66,7 +72,10 @@ export function validatePlan(proposed: PlanTask[], template: WorkflowTemplate): 
     else {
       const a = getAgent(t.agent_type);
       if (a.parent) errors.push(`${t.key}: ${t.agent_type} is a sub-agent and cannot be planned directly`);
-      if (t.agent_type === 'main_orchestrator' || t.agent_type === 'task_decomposer') errors.push(`${t.key}: ${t.agent_type} cannot be a queued task`);
+      if (t.agent_type === 'task_decomposer') errors.push(`${t.key}: task_decomposer cannot be a queued task`);
+      if (t.agent_type === 'main_orchestrator' && !t.triage && !t.approval_gate) errors.push(`${t.key}: the Main Agent only takes triage and approval tasks`);
+      if (t.triage && t.agent_type !== 'main_orchestrator') errors.push(`${t.key}: triage is performed by the Main Agent`);
+      if ((t.qa_gate || t.visual_qa_gate) && !a.reviewer) errors.push(`${t.key}: ${t.agent_type} is not a reviewer and cannot be a QA gate`);
       if (t.review_of && !a.reviewer) errors.push(`${t.key}: ${t.agent_type} is not a reviewer and cannot gate ${t.review_of}`);
     }
   }
@@ -104,6 +113,17 @@ export function validatePlan(proposed: PlanTask[], template: WorkflowTemplate): 
   }
   if (!topoOrder(tasks)) throw new PlanValidationError(['dependency cycle detected']);
   return { tasks, warnings };
+}
+
+/**
+ * Removes approval checkpoints whose gate is not active for this project,
+ * rewiring their dependents to the checkpoint's own dependencies.
+ */
+export function applyGates(tasks: PlanTask[], activeGates: string[]): PlanTask[] {
+  const drop = new Map(tasks.filter((t) => t.approval_gate && !activeGates.includes(t.approval_gate)).map((t) => [t.key, t.depends_on]));
+  return tasks
+    .filter((t) => !drop.has(t.key))
+    .map((t) => ({ ...t, depends_on: [...new Set(t.depends_on.flatMap((d) => drop.get(d) ?? [d]))] }));
 }
 
 /** Width of each dependency level - used to show how much parallelism the plan exposes. */

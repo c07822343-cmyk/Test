@@ -1,0 +1,35 @@
+{
+  "name": "revision",
+  "version": "1.0",
+  "title": "Revision",
+  "category": "client",
+  "description": "Convert client feedback into precise implementation tasks, preserving everything not asked to change.",
+  "when_to_use": "Any change request on an existing project.",
+  "triggers": [
+    "change",
+    "revise",
+    "update",
+    "feedback"
+  ],
+  "intents": [
+    "client_revision"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Split feedback into atomic changes with the file/section affected and the acceptance check; add a verification step."
+  ],
+  "expected_outputs": [
+    "atomic change tasks"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "revision_manager",
+    "website_debugger",
+    "website_copywriter"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

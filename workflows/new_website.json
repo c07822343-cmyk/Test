@@ -1,0 +1,312 @@
+{
+  "intent": "new_website",
+  "label": "New Website Project",
+  "description": "Real client build with planning artefacts and the full review loop.",
+  "triggers": [
+    "website",
+    "new site"
+  ],
+  "required": [
+    "intake",
+    "requirements",
+    "architecture",
+    "ux",
+    "copy",
+    "build",
+    "design_review",
+    "triage",
+    "visual_qa",
+    "final_qa",
+    "handoff"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the client request",
+      "mission": "Turn the request into a structured specification for a new client website. Record only facts actually present; list unknowns.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "requirements",
+      "agent_type": "requirements_analyst",
+      "title": "Requirements gap analysis",
+      "mission": "Identify missing requirements, contradictions and risky assumptions; state safe defaults, what must be confirmed before launch, and testable acceptance criteria.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "research",
+      "agent_type": "content_research",
+      "title": "Business and audience research",
+      "mission": "Research the business (if named) and its audience: services, service area, customer questions, seasonal needs and decision criteria. Classify every claim (VERIFIED_FACT / SOURCE_DERIVED / INFERENCE / UNVERIFIED) with source ids.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "competitive",
+      "agent_type": "competitive_research",
+      "title": "Competitor analysis",
+      "mission": "Compare public competitor patterns (structure, messaging, UX, offers, trust signals) and identify differentiation opportunities without copying.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 70,
+      "optional": true
+    },
+    {
+      "key": "assets",
+      "agent_type": "asset_research",
+      "title": "Visual asset plan",
+      "mission": "Define art direction and the image/asset plan (subjects, composition, licensing, alt text); placeholders with art-direction briefs where real assets are unknown.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 65,
+      "optional": true
+    },
+    {
+      "key": "brand",
+      "agent_type": "brand_voice",
+      "title": "Brand voice",
+      "mission": "Define voice attributes, vocabulary and before/after examples appropriate to this business and audience.",
+      "depends_on": [
+        "intake",
+        "research"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "seo_strategy",
+      "agent_type": "seo_specialist",
+      "title": "SEO strategy",
+      "mission": "Create the SEO strategy: keyword targets by intent and page, titles/meta/h1 per page, JSON-LD (placeholders for unknown business fields) and internal linking.",
+      "depends_on": [
+        "intake",
+        "research"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "local_seo",
+      "agent_type": "local_seo_specialist",
+      "title": "Local SEO plan",
+      "mission": "Plan local SEO: service-area approach, NAP requirements, Google Business Profile alignment and local schema fields (placeholders for unknowns).",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 70
+    },
+    {
+      "key": "project_plan",
+      "agent_type": "project_manager",
+      "title": "Project plan",
+      "mission": "Create milestones, owners, dependencies, risks and acceptance criteria.",
+      "depends_on": [
+        "requirements"
+      ],
+      "priority": 60,
+      "optional": true
+    },
+    {
+      "key": "architecture",
+      "agent_type": "website_architect",
+      "title": "Site architecture",
+      "mission": "Define pages, section hierarchy with a purpose per section, navigation, URL structure, tech approach and non-functional requirements, consistent with the blueprint.",
+      "depends_on": [
+        "requirements",
+        "research",
+        "competitive",
+        "seo_strategy"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "ux",
+      "agent_type": "ui_ux_designer",
+      "title": "Design system and layouts",
+      "mission": "Create the design tokens (AA-verified colour pairs, type scale, spacing, radius, elevation), grid, component inventory and mobile/tablet/desktop layouts for every section.",
+      "depends_on": [
+        "architecture",
+        "brand",
+        "assets"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy",
+      "agent_type": "website_copywriter",
+      "title": "Website copy",
+      "mission": "Write all page copy per the architecture in the brand voice, including title tags and meta descriptions; placeholders for unknown facts.",
+      "depends_on": [
+        "architecture",
+        "brand",
+        "research",
+        "seo_strategy",
+        "local_seo"
+      ],
+      "priority": 75
+    },
+    {
+      "key": "copy_review",
+      "agent_type": "conversion_optimization",
+      "title": "Conversion review of copy",
+      "mission": "Review the copy and structure for clarity, CTA placement and conversion friction; reject with specific rewrites if needed.",
+      "depends_on": [
+        "copy"
+      ],
+      "priority": 72,
+      "review_of": "copy"
+    },
+    {
+      "key": "motion",
+      "agent_type": "animation_motion",
+      "title": "Motion system",
+      "mission": "Define a restrained, purposeful motion system with reduced-motion fallbacks.",
+      "depends_on": [
+        "ux"
+      ],
+      "priority": 55,
+      "optional": true
+    },
+    {
+      "key": "build",
+      "agent_type": "frontend_developer",
+      "title": "Build the website",
+      "mission": "Implement the complete website as static files (every page in the blueprint, one stylesheet, minimal deferred JS, robots.txt, sitemap.xml) using the blueprint, architecture, design system, approved copy and SEO specification.",
+      "depends_on": [
+        "architecture",
+        "ux",
+        "copy_review",
+        "motion",
+        "seo_strategy",
+        "assets"
+      ],
+      "priority": 70
+    },
+    {
+      "key": "design_review",
+      "agent_type": "design_critic",
+      "title": "Design critique of the implementation",
+      "mission": "Strict review of the rendered implementation (hierarchy, spacing, typography, originality, polish) against the design system and ApexWeb anti-slop rules. Reject with precise fixes if it looks generic, templated or over-decorated.",
+      "depends_on": [
+        "build"
+      ],
+      "priority": 75,
+      "review_of": "build"
+    },
+    {
+      "key": "ux_review",
+      "agent_type": "ux_reviewer",
+      "title": "Independent UX review",
+      "mission": "Walk the primary journeys in the blueprint and report friction with element-level fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 62
+    },
+    {
+      "key": "bug_hunt",
+      "agent_type": "bug_finder",
+      "title": "Independent bug hunt",
+      "mission": "Find runtime errors, broken interactions and defects using the bug scan evidence.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 62
+    },
+    {
+      "key": "responsive",
+      "agent_type": "responsive_design",
+      "title": "Responsive verification",
+      "mission": "Verify behaviour at 360/768/1440px using rendered measurements; report defects with selector, viewport and CSS fix.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "accessibility",
+      "agent_type": "accessibility_specialist",
+      "title": "Accessibility audit",
+      "mission": "Audit against WCAG 2.2 AA using axe results and a manual review of semantics, keyboard flow and focus states.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "performance",
+      "agent_type": "performance_engineer",
+      "title": "Performance audit",
+      "mission": "Audit loading performance using the measured mobile probe (LCP, CLS, bytes, render-blocking) and the files; give concrete fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "seo_audit",
+      "agent_type": "seo_specialist",
+      "title": "On-page SEO audit of the implementation",
+      "mission": "Audit the built pages against the SEO strategy using the seo_audit output: metadata, headings, JSON-LD validity, internal links, sitemap/robots. Return a review with fixes.",
+      "depends_on": [
+        "design_review"
+      ],
+      "priority": 60
+    },
+    {
+      "key": "triage",
+      "agent_type": "main_orchestrator",
+      "title": "Main Agent triage of review findings",
+      "mission": "Consider every independent reviewer finding. Accept the ones that are evidenced and genuinely improve the result (assign each to the right specialist with the fix); reject duplicates, subjective nitpicks and anything contradicting the blueprint, with reasons.",
+      "depends_on": [
+        "ux_review",
+        "bug_hunt",
+        "responsive",
+        "accessibility",
+        "performance",
+        "seo_audit"
+      ],
+      "priority": 82,
+      "triage": true
+    },
+    {
+      "key": "visual_qa",
+      "agent_type": "visual_qa",
+      "title": "Visual QA loop",
+      "mission": "Render desktop, tablet and mobile, analyse screenshots and region checks, compare with the previous pass, and reject with concrete fixes until no critical or major visual issue remains.",
+      "depends_on": [
+        "triage"
+      ],
+      "priority": 80,
+      "visual_qa_gate": true
+    },
+    {
+      "key": "final_qa",
+      "agent_type": "final_qa_release",
+      "title": "Final QA and release check",
+      "mission": "Run the final release checks. Approve only if there are no deterministic hard failures and no unresolved critical issues; evaluate every blueprint requirement (result.requirement_checks). Otherwise reject with the exact fixes required.",
+      "depends_on": [
+        "visual_qa"
+      ],
+      "priority": 85,
+      "qa_gate": true
+    },
+    {
+      "key": "handoff",
+      "agent_type": "project_documentation",
+      "title": "Handoff package documentation",
+      "mission": "Write docs/HANDOFF.md (what was built, structure, how to deploy and edit, every [[PLACEHOLDER]] the client must replace, open items, configuration notes) and docs/CHANGELOG.md strictly from the task log.",
+      "depends_on": [
+        "final_qa"
+      ],
+      "priority": 50
+    }
+  ]
+}

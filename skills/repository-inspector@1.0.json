@@ -1,0 +1,33 @@
+{
+  "name": "repository-inspector",
+  "version": "1.0",
+  "title": "Repository Inspector",
+  "category": "devops",
+  "description": "Understand a repository (history, snapshots, structure, pending changes) before modifying it.",
+  "when_to_use": "Before any change to an existing codebase.",
+  "triggers": [
+    "repository",
+    "git",
+    "repo"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "repo_inspect"
+  ],
+  "instructions": [
+    "Never modify before inspecting; summarise structure, recent history and risky areas."
+  ],
+  "expected_outputs": [
+    "repository summary"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "change_reviewer",
+    "website_architect"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

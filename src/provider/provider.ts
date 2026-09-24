@@ -154,6 +154,9 @@ export class NvidiaProvider {
         throw err;
       }
       attempts++;
+      if (req.metadata?.projectId) {
+        await this.#db.query('UPDATE key_requests SET project_id = $2, agent_type = $3 WHERE lease_id = $1', [lease.leaseId, req.metadata.projectId, req.metadata.purpose ?? null]);
+      }
       const result = await this.invokeWithLease(lease, req);
       if (result.ok) return { ...result.response, attempts };
       lastError = result;

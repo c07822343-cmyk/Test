@@ -1,0 +1,40 @@
+{
+  "name": "screenshot-to-design",
+  "version": "1.0",
+  "title": "Screenshot-to-Design",
+  "category": "visual",
+  "description": "Analyse screenshots or visual references and derive a structured design system (palette, type, spacing, components, layout patterns).",
+  "when_to_use": "The client supplied screenshots, mockups, a current site or references to match or evolve.",
+  "triggers": [
+    "screenshot",
+    "mockup",
+    "reference",
+    "figma",
+    "design reference",
+    "match this"
+  ],
+  "intents": [],
+  "required_inputs": [],
+  "tools": [
+    "visual_screenshots",
+    "file_analyzer"
+  ],
+  "instructions": [
+    "Describe only what is visible; estimate values (colours as hex, sizes as px/rem) and label them as measured or estimated.",
+    "Output a reusable token set and component inventory; note what should not be carried over (accessibility or quality problems)."
+  ],
+  "expected_outputs": [
+    "derived design tokens",
+    "component inventory"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "image_visual_analysis",
+    "ui_ux_designer",
+    "mobile_ui_checker"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

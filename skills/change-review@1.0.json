@@ -1,0 +1,37 @@
+{
+  "name": "change-review",
+  "version": "1.0",
+  "title": "Change Review",
+  "category": "devops",
+  "description": "Review diffs before accepting changes: correctness, regressions, unintended deletions, scope creep.",
+  "when_to_use": "After fixes and revisions, before QA.",
+  "triggers": [],
+  "intents": [
+    "emergency_bug_fix",
+    "client_revision",
+    "website_improvement"
+  ],
+  "required_inputs": [],
+  "tools": [
+    "change_diff"
+  ],
+  "instructions": [
+    "Reject unexplained deletions of content or functionality and diffs that break markup or selectors."
+  ],
+  "expected_outputs": [
+    "approve/reject with fixes"
+  ],
+  "validation": [
+    {
+      "rule": "review_has_actionable_fixes"
+    }
+  ],
+  "compatible_agents": [
+    "change_reviewer",
+    "qa_director"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

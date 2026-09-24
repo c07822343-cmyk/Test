@@ -1,0 +1,36 @@
+{
+  "name": "scope-builder",
+  "version": "1.0",
+  "title": "Scope Builder",
+  "category": "client",
+  "description": "Create a project scope from requirements: phases, deliverables, exclusions, assumptions.",
+  "when_to_use": "Proposals, project plans, change requests with budget impact.",
+  "triggers": [
+    "scope",
+    "proposal",
+    "quote",
+    "estimate"
+  ],
+  "intents": [
+    "proposal",
+    "new_website"
+  ],
+  "required_inputs": [],
+  "tools": [],
+  "instructions": [
+    "Deliverables are concrete and checkable; exclusions explicit; prices/dates are placeholders unless supplied."
+  ],
+  "expected_outputs": [
+    "scope document"
+  ],
+  "validation": [],
+  "compatible_agents": [
+    "proposal_agent",
+    "project_manager",
+    "requirements_analyst"
+  ],
+  "sub_skills": [],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

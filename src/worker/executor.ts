@@ -18,6 +18,15 @@ import type { ProjectStore } from '../queue/projects.ts';
 import type { TaskQueue } from '../queue/taskQueue.ts';
 import type { NewTaskSpec, TaskRow } from '../queue/types.ts';
 import { runAgentTools, type ToolResult } from '../tools/runner.ts';
+import type { CacheStore } from '../cache/cache.ts';
+import { TTL } from '../cache/cache.ts';
+import type { ProjectRepos } from '../devops/git.ts';
+import type { LifecycleTracker } from '../orchestrator/lifecycle.ts';
+import { projectSources, storeClaims, verifyClaims } from '../research/provenance.ts';
+import type { SearchProvider } from '../research/search.ts';
+import type { SkillEngine } from '../skills/engine.ts';
+import { profilePermissions } from '../tools/catalog.ts';
+import { issueScore } from '../tools/visualQa.ts';
 import { AppError, newId } from '../util/common.ts';
 import { errorMessage, logger } from '../util/log.ts';
 
@@ -33,6 +42,11 @@ export interface ExecutorDeps {
   memory: MemoryStore;
   artifacts: ArtifactStore;
   contextBuilder: ContextBuilder;
+  skills: SkillEngine;
+  cache: CacheStore;
+  search: SearchProvider;
+  repos: ProjectRepos;
+  lifecycle: LifecycleTracker;
   fetchImpl?: typeof fetch;
 }
 
@@ -51,7 +65,7 @@ export type InvokeStepResult =
   | { ok: false; error_class: string; message: string; retry_after_ms: number | null };
 
 export interface ReviewStepResult {
-  outcome: 'completed' | 'waiting_on_subtasks' | 'revision_requested' | 'fix_cycle_started' | 'retry' | 'failed' | 'escalated';
+  outcome: 'completed' | 'waiting_on_subtasks' | 'revision_requested' | 'fix_cycle_started' | 'retry' | 'failed' | 'escalated' | 'awaiting_approval';
   task: ReturnType<typeof summarise>;
   detail?: unknown;
   decision?: FailureDecision;
@@ -80,6 +94,21 @@ export class TaskExecutor {
     );
   }
 
+  /** Keeps the task's heartbeat fresh while a long step (tools, model call) runs. */
+  async #withHeartbeat<T>(taskId: string, fn: () => Promise<T>): Promise<T> {
+    await this.d.queue.heartbeat(taskId);
+    const timer = setInterval(() => void this.d.queue.heartbeat(taskId).catch(() => undefined), 10_000);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(timer);
+    }
+  }
+
+  async #event(task: TaskRow, type: string, actor: string, detail: Record<string, unknown>): Promise<void> {
+    await this.d.queue.recordEvent(this.d.db, task, type, task.status, task.status, actor, detail);
+  }
+
   pipelineFor(task: TaskRow): string {
     return getAgent(task.agent_type).pipeline;
   }
@@ -99,10 +128,11 @@ export class TaskExecutor {
       taskId,
       ['ASSIGNED'],
       'RUNNING',
-      { attempt: task.attempt + 1, started_at: task.started_at ?? new Date(), workflow_execution_id: ctx.executionId ?? task.workflow_execution_id, error: null },
+      { attempt: task.attempt + 1, started_at: task.started_at ?? new Date(), workflow_execution_id: ctx.executionId ?? task.workflow_execution_id, error: null, heartbeat_at: new Date() },
       { type: 'started', actor: ctx.actor, detail: { attempt: task.attempt + 1, phase: task.phase, execution_id: ctx.executionId ?? null, workflow: ctx.workflow ?? null } },
     );
     await this.#recordStep(ctx, running, 'start', 'RUNNING');
+    await this.d.lifecycle.refresh(running.project_id, `${getAgent(running.agent_type).name} started "${running.title}"`);
     return running;
   }
 
@@ -110,9 +140,12 @@ export class TaskExecutor {
   async runTools(taskId: string, ctx: StepContext): Promise<{ tools: Array<Pick<ToolResult, 'tool' | 'ok' | 'available' | 'error'> & { findings: number; hard_failures: number }> }> {
     const task = await this.#requireRunning(taskId);
     const agent = getAgent(task.agent_type);
-    const results = agent.tools?.length
-      ? await runAgentTools(agent, task, { config: this.d.config, artifacts: this.d.artifacts, memory: this.d.memory, fetchImpl: this.d.fetchImpl })
-      : [];
+    const skillTools = this.d.skills.tools(task.skills);
+    const results = await this.#withHeartbeat(taskId, () => runAgentTools(agent, task, {
+      config: this.d.config, db: this.d.db, artifacts: this.d.artifacts, memory: this.d.memory, cache: this.d.cache,
+      search: this.d.search, repos: this.d.repos, fetchImpl: this.d.fetchImpl,
+      onEvent: (type, detail) => this.#event(task, type, `agent:${agent.type}`, detail),
+    }, skillTools));
     await this.d.queue.extendLease(taskId, task.lease_owner ?? ctx.actor);
     await this.#recordStep(ctx, task, 'tools', 'RUNNING');
     return { tools: results.map((r) => ({ tool: r.tool, ok: r.ok, available: r.available, error: r.error, findings: r.findings.length, hard_failures: r.hard_failures.length })) };
@@ -136,13 +169,26 @@ export class TaskExecutor {
   }
 
   // ------------------------------------------------------------ STEP 4
-  async buildContext(taskId: string, ctx: StepContext): Promise<{ chars: number; budget: number; sections: unknown; images: number }> {
+  async buildContext(taskId: string, ctx: StepContext): Promise<{ chars: number; budget: number; sections: unknown; images: number; cached: boolean }> {
     const task = await this.#requireRunning(taskId);
     const model = this.d.provider.router.get(task.assigned_model ?? '') ?? this.d.provider.router.select({ capability: getAgent(task.agent_type).capability });
     const built = await this.d.contextBuilder.build(task, model);
     await this.d.memory.set('task', taskId, 'prompt', { messages: built.messages, model: model.id }, 'context_builder');
+    const agent = getAgent(task.agent_type);
+    if (agent.cacheable && task.phase === 'execute') {
+      // Identical prompt already answered in this project: reuse instead of spending another NVIDIA call.
+      const key = this.d.cache.key('model_response', 'project', task.project_id, { model: model.id, messages: built.messages });
+      const hit = await this.d.cache.get<{ content: string; model: string; key: string; finish_reason: string | null }>(key);
+      if (hit) {
+        await this.d.memory.set('task', taskId, 'raw_output', { ...hit.result, cached: true }, 'cache');
+        await this.d.db.query(`INSERT INTO usage_savings (project_id, task_id, kind, detail) VALUES ($1, $2, 'cache_hit:model_response', $3)`, [task.project_id, taskId, JSON.stringify({ model: model.id, cached_at: hit.created_at })]);
+        await this.d.queue.transition(taskId, ['RUNNING'], 'REVIEW', {}, { type: 'cache_hit', actor: ctx.actor, detail: { model: model.id, cached_at: hit.created_at } });
+        await this.#recordStep(ctx, task, 'context', 'REVIEW');
+        return { ...built.stats, cached: true };
+      }
+    }
     await this.#recordStep(ctx, task, 'context', 'RUNNING');
-    return built.stats;
+    return { ...built.stats, cached: false };
   }
 
   // ------------------------------------------------------------ STEP 5
@@ -166,6 +212,7 @@ export class TaskExecutor {
       lease = d.lease;
     }
     await this.d.db.query('UPDATE tasks SET assigned_key = $2, updated_at = now() WHERE id = $1', [taskId, lease.keyId]);
+    await this.d.db.query('UPDATE key_requests SET project_id = $2, agent_type = $3 WHERE lease_id = $1', [lease.leaseId, task.project_id, task.agent_type]);
     await this.d.queue.recordEvent(this.d.db, task, 'key_leased', task.status, task.status, ctx.actor, { key: lease.keyId, model: lease.model, window_used: lease.windowCountAfterGrant, ceiling: lease.ceiling });
     await this.#recordStep(ctx, task, 'lease', 'RUNNING');
     return { granted: true, lease_id: lease.leaseId, key: lease.keyId, model: lease.model, window_used: lease.windowCountAfterGrant, ceiling: lease.ceiling };
@@ -187,18 +234,26 @@ export class TaskExecutor {
     if (!prompt) throw new AppError('no_context', 'Build context before invoking the model', 409);
     const agent = getAgent(task.agent_type);
     const lease: Lease = { leaseId, keyId: row.key_id, model: row.model, grantedAt: row.granted_at, windowCountAfterGrant: 0, ceiling: this.d.config.nvidia.rpmPerKey };
-    const result = await this.d.provider.invokeWithLease(lease, {
+    const result = await this.#withHeartbeat(taskId, () => this.d.provider.invokeWithLease(lease, {
       messages: prompt.messages,
       maxTokens: agent.maxTokens,
       temperature: agent.temperature,
       metadata: { taskId, projectId: task.project_id, purpose: `agent:${agent.type}` },
       signal,
-    });
+    }));
     if (!result.ok) {
       await this.#recordStep(ctx, task, 'invoke', 'FAILED_ATTEMPT');
       return { ok: false, error_class: result.errorClass, message: result.message, retry_after_ms: result.retryAfterMs };
     }
     await this.d.memory.set('task', taskId, 'raw_output', { content: result.response.content, model: result.response.model, key: result.response.keyId, finish_reason: result.response.finishReason, usage: result.response.usage }, 'provider');
+    if (agent.cacheable && task.phase === 'execute' && result.response.finishReason !== 'length') {
+      await this.d.cache.set({
+        key: this.d.cache.key('model_response', 'project', task.project_id, { model: prompt.model, messages: prompt.messages }),
+        scope: 'project', scopeId: task.project_id, kind: 'model_response', query: `${agent.type}: ${task.title}`,
+        result: { content: result.response.content, model: result.response.model, key: result.response.keyId, finish_reason: result.response.finishReason },
+        ttlMs: TTL.modelResponse,
+      });
+    }
     await this.d.queue.transition(taskId, ['RUNNING'], 'REVIEW', {}, {
       type: 'model_responded',
       actor: ctx.actor,
@@ -227,6 +282,40 @@ export class TaskExecutor {
       return this.fail(taskId, { errorClass: 'malformed_output', message: `Output rejected: ${problems.join('; ')}.${truncated}` }, ctx);
     }
 
+    // Tool permissions apply to outputs too: writing site files / docs needs the grant.
+    const siteFilesOut = files.filter((f) => !f.path.startsWith('docs/'));
+    const docFilesOut = files.filter((f) => f.path.startsWith('docs/'));
+    if (siteFilesOut.length && !this.#may(agent, 'site_write')) {
+      return this.fail(taskId, { errorClass: 'validation_error', message: `${agent.name} (profile ${agent.toolProfile}) may not write site files` }, ctx);
+    }
+    if (docFilesOut.length && !this.#may(agent, 'docs_write') && !this.#may(agent, 'site_write')) {
+      return this.fail(taskId, { errorClass: 'validation_error', message: `${agent.name} (profile ${agent.toolProfile}) may not write documentation files` }, ctx);
+    }
+
+    // Skill validation: every loaded skill's rules run against this output.
+    const currentSite = await this.d.artifacts.latestText(task.project_id, 'site/');
+    const produced: Record<string, string> = {};
+    for (const f of files) produced[f.path.startsWith('site/') ? f.path.slice(5) : f.path] = f.content;
+    const siteAfter = { ...currentSite, ...Object.fromEntries(Object.entries(produced).filter(([p]) => !p.startsWith('docs/'))) };
+    const facts = (await this.d.memory.get<string[]>('project', task.project_id, 'facts')) ?? [];
+    const sourceRows = await projectSources(this.d.db, task.project_id);
+    const sources = new Map(sourceRows.map((r) => [r.id, { url: r.final_url ?? r.url, excerpt: r.excerpt ?? '' }]));
+    const validation = this.d.skills.validate(task.skills, { agentType: agent.type, envelope, producedFiles: produced, siteAfter, facts, sources });
+    const blocking = validation.filter((v) => !v.passed && v.severity === 'error');
+    if (blocking.length) {
+      await this.#event(task, 'skill_validation_failed', `agent:${agent.type}`, { failures: blocking });
+      return this.fail(taskId, { errorClass: 'validation_error', message: `Skill validation failed: ${blocking.map((b) => `[${b.skill} ${b.rule}] ${b.detail}`).join('; ')}` }, ctx);
+    }
+
+    // Research provenance: classifications are enforced against real fetched sources.
+    if (Array.isArray(envelope.result?.claims)) {
+      const verified = verifyClaims(envelope.result.claims, sources);
+      await storeClaims(this.d.db, task.project_id, taskId, verified);
+      envelope.result.claims = verified;
+      const downgraded = verified.filter((c) => c.downgrade_reason).length;
+      if (downgraded) await this.#event(task, 'claims_downgraded', 'provenance', { downgraded, total: verified.length });
+    }
+
     // Persist files as versioned artifacts.
     const written: Array<{ path: string; version: number; bytes: number }> = [];
     for (const f of files) {
@@ -239,8 +328,17 @@ export class TaskExecutor {
         return this.fail(taskId, { errorClass: 'validation_error', message: `File ${f.path} rejected: ${errorMessage(err)}` }, ctx);
       }
     }
-    const outputs: Record<string, unknown> = { ...envelope, files: written, model: raw.model, key: raw.key };
+    const outputs: Record<string, unknown> = { ...envelope, files: written, model: raw.model, key: raw.key, skill_validation: validation, cached: !!(raw as any).cached };
     await this.#absorbFacts(task, envelope);
+    if (written.length) {
+      const snap = await this.d.repos.snapshot(task.project_id, { label: `${agent.name}: ${task.title}${task.revision ? ` (revision ${task.revision})` : ''}`, taskId, author: agent.type });
+      if (snap) outputs.snapshot = { id: snap.id, commit: snap.commit_sha };
+    }
+
+    if (task.kind === 'triage') {
+      const r = await this.#applyTriage(task, envelope, outputs, ctx);
+      if (r) return r;
+    }
 
     // Sub-agent delegation (execute phase only).
     if (task.phase === 'execute' && envelope.subtasks.length) {
@@ -272,7 +370,7 @@ export class TaskExecutor {
         const r = await this.#requestRevision(task, review, outputs, ctx);
         if (r) return r;
       }
-      if (task.kind === 'qa' && review.verdict === 'reject') {
+      if ((task.kind === 'qa' || task.kind === 'visual_qa') && review.verdict === 'reject') {
         const r = await this.#startFixCycle(task, review, outputs, ctx);
         if (r) return r;
       }
@@ -294,10 +392,8 @@ export class TaskExecutor {
     const r = env.result ?? {};
     const add: string[] = [];
     if (task.agent_type === 'client_intake' && Array.isArray(r.known_facts)) add.push(...r.known_facts.map(String));
-    if (task.agent_type === 'research_coordinator' && Array.isArray(r.verified_facts)) add.push(...r.verified_facts.map((f: any) => (typeof f === 'string' ? f : `${f.fact} (source: ${f.source})`)));
-    if (task.agent_type === 'content_research' && Array.isArray(r.notes)) {
-      add.push(...r.notes.filter((n: any) => n?.basis === 'verified' && n?.source).map((n: any) => `${n.note} (source: ${n.source})`));
-    }
+    // Only claims that survived provenance verification become facts writers may state.
+    if (Array.isArray(r.claims)) add.push(...r.claims.filter((c: any) => c?.classification === 'VERIFIED_FACT').map((c: any) => c.statement));
     if (!add.length) return;
     const existing = (await this.d.memory.get<string[]>('project', task.project_id, 'facts')) ?? [];
     const merged = [...new Set([...existing, ...add.map((s) => s.slice(0, 500))])].slice(0, 200);
@@ -368,33 +464,117 @@ export class TaskExecutor {
     return { outcome: 'revision_requested', task: summarise(waiting), detail: { target: target.id, round: feedback.round, issues: feedback.issues } };
   }
 
+  /**
+   * Self-correction loop for QA gates (final QA and Visual QA): a rejection
+   * creates a fix task and re-runs the gate after it. Bounded by a cycle limit,
+   * and every cycle must make measurable progress (lower weighted issue score)
+   * or the loop terminates with the remaining issues reported.
+   */
   async #startFixCycle(task: TaskRow, review: NonNullable<Envelope['review']>, outputs: Record<string, unknown>, ctx: StepContext): Promise<ReviewStepResult | null> {
     const project = await this.d.projects.get(task.project_id);
-    if (project.fix_cycles >= this.d.config.maxFixCycles) return null;
-    const cycle = project.fix_cycles + 1;
-    await this.d.projects.update(project.id, { fix_cycles: cycle });
+    const visual = task.kind === 'visual_qa';
+    const toolResults = (await this.d.memory.get<ToolResult[]>('task', task.id, 'tool_results')) ?? [];
+    const measured = visual ? (toolResults.find((t) => t.tool === 'visual_qa')?.summary as any)?.score : null;
+    const score = typeof measured === 'number' ? measured : issueScore(review.issues);
+    const history: number[] = task.inputs?.cycle_scores ?? [];
+    const limit = visual ? project.max_refinement_cycles : this.d.config.maxFixCycles;
+    const stop = (reason: string) => {
+      outputs.refinement = { terminated: reason, cycles: history.length, scores: [...history, score] };
+      return null;
+    };
+    if (history.length >= limit || (!visual && project.fix_cycles >= this.d.config.maxFixCycles)) return stop('cycle_limit_reached');
+    if (history.length > 0 && score >= history[history.length - 1]) return stop('no_measurable_progress');
+    const cycle = history.length + 1;
+    if (!visual) await this.d.projects.update(project.id, { fix_cycles: project.fix_cycles + 1 });
     const issues = review.issues.filter((i) => i.severity !== 'minor').slice(0, 30);
+    const screenshots = visual ? toolResults.flatMap((t) => t.images ?? []).map((i) => i.artifact_path) : [];
     const [fix] = await this.d.queue.createTasks(task.project_id, [{
-      plan_key: `fix_cycle_${cycle}`,
+      plan_key: `${visual ? 'visual_fix' : 'fix_cycle'}_${cycle}`,
       agent_type: 'website_debugger',
-      title: `Fix QA findings (cycle ${cycle})`,
-      mission: `Fix every issue reported by ${getAgent(task.agent_type).name}. Keep all other content and design intact.`,
+      title: `Fix ${visual ? 'visual QA' : 'QA'} findings (cycle ${cycle})`,
+      mission: `Fix every issue reported by ${getAgent(task.agent_type).name}${visual ? ' (with viewport, region and element)' : ''}. Keep all other content and design intact.`,
       kind: 'fix',
       priority: 90,
-      inputs: { issues, instructions: review.revision_instructions ?? null, qa_task: task.id },
+      inputs: { issues, instructions: review.revision_instructions ?? null, qa_task: task.id, screenshots },
+      skills: this.d.skills.forAgent(((project.skill_chain ?? []) as any[]).map((c) => c.skill), 'website_debugger'),
+      stage: 'REVISION',
       idempotency_key: `${task.id}:fix:${cycle}`,
     }], ctx.actor);
     const waiting = await this.d.queue.transition(task.id, ['REVIEW'], 'WAITING', {
       outputs,
       dependencies: [...task.dependencies, fix.id],
+      inputs: { ...task.inputs, cycle_scores: [...history, score] },
       phase: 'execute',
       lease_owner: null,
       lease_expires_at: null,
       attempt: 0,
-    }, { type: 'fix_cycle_started', actor: ctx.actor, detail: { cycle, fix_task: fix.id, issues: issues.length } });
+    }, { type: 'fix_cycle_started', actor: ctx.actor, detail: { cycle, fix_task: fix.id, issues: issues.length, score, previous_score: history[history.length - 1] ?? null, first_issue: issues[0]?.description ?? null } });
     await this.#recordStep(ctx, waiting, 'review', 'WAITING');
     await this.d.queue.reconcile(task.project_id, ctx.actor);
     return { outcome: 'fix_cycle_started', task: summarise(waiting), detail: { cycle, fix_task: fix.id, issues } };
+  }
+
+  #may(agent: ReturnType<typeof getAgent>, perm: 'site_write' | 'docs_write'): boolean {
+    const perms = profilePermissions(agent.toolProfile);
+    return agent.producesFiles === true && (perms.includes(perm) || (perm === 'docs_write' && perms.includes('site_write')));
+  }
+
+  /**
+   * Second set of eyes: the Main Agent's triage decides which independent
+   * reviewer findings require changes. Accepted findings become a fix task
+   * guarded by a Change Review gate, inserted in front of everything that
+   * depended on the triage. Deterministic critical failures are always accepted.
+   */
+  async #applyTriage(task: TaskRow, env: Envelope, outputs: Record<string, unknown>, ctx: StepContext): Promise<ReviewStepResult | null> {
+    const accepted: any[] = Array.isArray(env.result?.accepted) ? env.result.accepted : [];
+    const rejected: any[] = Array.isArray(env.result?.rejected) ? env.result.rejected : [];
+    const forced: any[] = [];
+    for (const depId of task.dependencies) {
+      const tools = (await this.d.memory.get<ToolResult[]>('task', depId, 'tool_results')) ?? [];
+      for (const hf of tools.flatMap((t) => t.hard_failures ?? [])) {
+        const text = `${hf.page ? `${hf.page}: ` : ''}${hf.detail}`;
+        if (!accepted.some((a) => String(a.finding ?? '').includes(hf.detail.slice(0, 40)))) forced.push({ finding: text, from: 'deterministic check', severity: 'critical', assign_to: 'website_debugger', fix: `Resolve ${hf.rule}` });
+      }
+    }
+    const all = [...accepted, ...forced.filter((f, i, arr) => arr.findIndex((x) => x.finding === f.finding) === i)].slice(0, 40);
+    outputs.triage = { accepted: all.length, rejected: rejected.length, forced: forced.length };
+    if (!all.length) return null;
+    const project = await this.d.projects.get(task.project_id);
+    const chain = ((project.skill_chain ?? []) as any[]).map((c) => c.skill);
+    const fixId = newId('tsk');
+    const reviewId = newId('tsk');
+    await this.d.queue.createTasks(task.project_id, [
+      {
+        id: fixId,
+        plan_key: `${task.plan_key}_fixes`,
+        agent_type: 'website_debugger',
+        title: 'Fix triaged review findings',
+        mission: 'Fix every finding the Main Agent accepted from the independent reviews. Keep everything else intact.',
+        kind: 'fix',
+        priority: 85,
+        inputs: { issues: all.map((a) => ({ severity: a.severity ?? 'major', area: a.from ?? 'review', description: a.finding, fix: a.fix ?? '' })), triage_task: task.id },
+        skills: this.d.skills.forAgent(chain, 'website_debugger'),
+        stage: 'REVISION',
+        idempotency_key: `${task.id}:triage-fix`,
+      },
+      {
+        id: reviewId,
+        plan_key: `${task.plan_key}_change_review`,
+        agent_type: 'change_reviewer',
+        title: 'Review the fix diff before accepting it',
+        mission: 'Review the unified diff of the triage fixes: confirm each accepted finding was addressed and nothing else was broken or removed.',
+        kind: 'review',
+        priority: 84,
+        dependencies: [fixId],
+        review_target: fixId,
+        skills: this.d.skills.forAgent(chain, 'change_reviewer'),
+        stage: 'INTEGRATION',
+        idempotency_key: `${task.id}:triage-change-review`,
+      },
+    ], ctx.actor);
+    await this.d.queue.insertBeforeDependents(task.project_id, task.id, [reviewId], ctx.actor);
+    await this.#event(task, 'triage_decided', 'agent:main_orchestrator', { accepted: all.length, rejected: rejected.length, forced: forced.length, fix_task: fixId, change_review: reviewId });
+    return null;
   }
 
   // -------------------------------------------------------- FAILURE PATH
@@ -476,6 +656,7 @@ export class TaskExecutor {
   /** After any terminal transition: re-evaluate the graph and notify listeners. */
   async afterTerminal(task: TaskRow): Promise<void> {
     await this.d.queue.reconcile(task.project_id, 'executor');
+    await this.d.lifecycle.refresh(task.project_id, `${getAgent(task.agent_type).name}: "${task.title}" ${task.status.toLowerCase()}`);
     this.d.queue.emit('task_terminal', { task });
   }
 
@@ -496,7 +677,8 @@ export class TaskExecutor {
     try {
       await this.runTools(task.id, ctx);
       await this.selectModel(task.id, ctx);
-      await this.buildContext(task.id, ctx);
+      const built = await this.buildContext(task.id, ctx);
+      if (built.cached) return await this.review(task.id, ctx);
       const lease = await this.lease(task.id, ctx, { wait: true, signal });
       if (!lease.granted) throw new Error('unreachable: blocking lease returned without grant');
       const inv = await this.invoke(task.id, lease.lease_id, ctx, signal);

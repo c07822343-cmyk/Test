@@ -6,16 +6,23 @@ import { EventEmitter } from 'node:events';
 import type { Db, DbClient, Queryable } from '../db/pool.ts';
 import { withTransaction } from '../db/pool.ts';
 import { redact } from '../security/redact.ts';
-import { AppError, newId } from '../util/common.ts';
+import { AppError, newId, sha256 } from '../util/common.ts';
 import { logger } from '../util/log.ts';
-import { TRANSITIONS, type NewTaskSpec, type TaskRow, type TaskStatus } from './types.ts';
+import { classForPriority, PRIORITY_BASE, TRANSITIONS, type NewTaskSpec, type TaskRow, type TaskStatus } from './types.ts';
+
+/** Semantic identity of a piece of work, used to detect accidental duplicates. */
+export function dedupeKey(agentType: string, title: string, mission: string, inputs?: Record<string, unknown>): string {
+  const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '').trim();
+  const extra = inputs && (inputs.issues || inputs.review_target) ? JSON.stringify(inputs.issues ?? inputs.review_target) : '';
+  return sha256(`${agentType}|${norm(title)}|${norm(mission)}|${extra}`).slice(0, 32);
+}
 
 const log = logger('queue');
 
 const PATCHABLE = new Set([
   'outputs', 'error', 'attempt', 'assigned_key', 'assigned_model', 'lease_owner', 'lease_expires_at', 'not_before',
   'started_at', 'completed_at', 'inputs', 'phase', 'dependencies', 'revision', 'capacity_waits', 'workflow_execution_id',
-  'model_override', 'agent_type', 'max_attempts', 'priority', 'capability',
+  'model_override', 'agent_type', 'max_attempts', 'priority', 'capability', 'stage', 'heartbeat_at', 'skills', 'priority_class',
 ]);
 const JSON_COLUMNS = new Set(['outputs', 'error', 'inputs']);
 
@@ -86,26 +93,41 @@ export class TaskQueue extends EventEmitter {
       for (const spec of specs) {
         const id = spec.id ?? newId('tsk');
         const status: TaskStatus = spec.initial_status ?? ((spec.dependencies?.length ?? 0) > 0 ? 'WAITING' : 'QUEUED');
+        const priority = spec.priority ?? (spec.priority_class ? PRIORITY_BASE[spec.priority_class] : 50);
+        const pclass = spec.priority_class ?? classForPriority(priority);
+        const dkey = spec.allow_duplicate || spec.kind === 'root' || spec.kind === 'approval' ? null : dedupeKey(spec.agent_type, spec.title, spec.mission, spec.inputs);
         const ins = await c.query(
           `INSERT INTO tasks (id, project_id, parent_task_id, plan_key, agent_type, title, mission, kind, status, optional, priority,
-             dependencies, inputs, review_target, capability, max_attempts, max_revisions, timeout_ms, idempotency_key)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-           ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
+             dependencies, inputs, review_target, capability, max_attempts, max_revisions, timeout_ms, idempotency_key,
+             skills, stage, priority_class, dedupe_key)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+           ON CONFLICT DO NOTHING RETURNING *`,
           [
             id, projectId, spec.parent_task_id ?? null, spec.plan_key, spec.agent_type, spec.title, spec.mission,
-            spec.kind ?? 'work', status, spec.optional ?? false, spec.priority ?? 50, spec.dependencies ?? [],
+            spec.kind ?? 'work', status, spec.optional ?? false, priority, spec.dependencies ?? [],
             JSON.stringify(spec.inputs ?? {}), spec.review_target ?? null, spec.capability ?? null,
             spec.max_attempts ?? 3, spec.max_revisions ?? 2, spec.timeout_ms ?? 600_000, spec.idempotency_key ?? null,
+            spec.skills ?? [], spec.stage ?? null, pclass, dkey,
           ],
         );
         if (ins.rows[0]) {
           created.push(ins.rows[0]);
-          await this.recordEvent(c, ins.rows[0], 'created', null, status, actor, { agent_type: spec.agent_type, dependencies: spec.dependencies ?? [] });
+          await this.recordEvent(c, ins.rows[0], 'created', null, status, actor, { agent_type: spec.agent_type, dependencies: spec.dependencies ?? [], skills: spec.skills ?? [], priority_class: pclass });
         } else {
-          const existing = await c.query('SELECT * FROM tasks WHERE idempotency_key = $1', [spec.idempotency_key]);
+          const existing = await c.query(
+            `SELECT * FROM tasks WHERE ($1::text IS NOT NULL AND idempotency_key = $1)
+               OR ($2::text IS NOT NULL AND project_id = $3 AND dedupe_key = $2 AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED'))
+             LIMIT 1`,
+            [spec.idempotency_key ?? null, dkey, projectId],
+          );
           if (existing.rows[0]) {
             if (existing.rows[0].project_id !== projectId) {
               throw new AppError('duplicate_task', `Idempotency key ${spec.idempotency_key} belongs to another project`, 409);
+            }
+            if (existing.rows[0].idempotency_key !== spec.idempotency_key) {
+              // Semantic duplicate of active work: reuse it instead of launching identical work.
+              await c.query(`INSERT INTO usage_savings (project_id, task_id, kind, detail) VALUES ($1, $2, 'duplicate_task_prevented', $3)`, [projectId, existing.rows[0].id, JSON.stringify({ title: spec.title, agent_type: spec.agent_type })]);
+              await this.recordEvent(c, existing.rows[0], 'duplicate_prevented', existing.rows[0].status, existing.rows[0].status, actor, { requested_title: spec.title });
             }
             created.push(existing.rows[0]);
           }
@@ -161,17 +183,27 @@ export class TaskQueue extends EventEmitter {
   async claimReady(owner: string, limit: number): Promise<TaskRow[]> {
     const claimed = await withTransaction(this.#db, async (c) => {
       await c.query('SELECT pg_advisory_xact_lock(771001)');
+      // CRITICAL work bypasses normal ordering and may use one reserved slot above the
+      // cap; everything else is ordered by priority plus aging (no starvation).
+      // Dependencies and the NVIDIA limiter still apply to every task.
       const { rows } = await c.query(
         `WITH running AS (SELECT count(*)::int AS n FROM tasks WHERE status IN ('ASSIGNED', 'RUNNING')),
-         candidates AS (
-           SELECT t.id, t.status AS prev_status FROM tasks t JOIN projects p ON p.id = t.project_id
+         ready AS (
+           SELECT t.id, t.status AS prev_status, t.priority_class,
+                  row_number() OVER (ORDER BY (t.priority_class = 'CRITICAL') DESC,
+                    t.priority + CASE WHEN t.priority_class = 'BACKGROUND' THEN 0 ELSE LEAST(15, extract(epoch FROM now() - t.created_at) / 120) END DESC,
+                    t.created_at, t.id) AS rn
+           FROM tasks t JOIN projects p ON p.id = t.project_id
            WHERE (t.status = 'QUEUED' OR t.status = 'RETRYING')
              AND (t.not_before IS NULL OR t.not_before <= now())
-             AND t.kind <> 'root'
+             AND t.kind NOT IN ('root', 'approval')
              AND p.paused = false AND p.status = 'RUNNING'
              AND NOT ${UNSATISFIED_DEPS('t')}
-           ORDER BY t.priority DESC, t.created_at, t.id
-           LIMIT GREATEST(0, LEAST($2::int, $3::int - (SELECT n FROM running)))
+         ),
+         candidates AS (
+           SELECT t.id, r.prev_status FROM tasks t JOIN ready r ON r.id = t.id
+           WHERE r.rn <= GREATEST(0, LEAST($2::int, $3::int + CASE WHEN r.priority_class = 'CRITICAL' THEN 1 ELSE 0 END - (SELECT n FROM running)))
+           ORDER BY r.rn
            FOR UPDATE OF t SKIP LOCKED
          )
          UPDATE tasks SET status = 'ASSIGNED', lease_owner = $1,
@@ -209,7 +241,7 @@ export class TaskQueue extends EventEmitter {
    * Returns the number of tasks that became ready.
    */
   async reconcile(projectId: string, actor = 'queue'): Promise<number> {
-    const promoted = await withTransaction(this.#db, async (c) => {
+    const promoted: { count: number; approvals: string[] } = await withTransaction(this.#db, async (c) => {
       await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [projectId]);
       // Cascade blocks until fixpoint.
       for (let i = 0; i < 100; i++) {
@@ -234,10 +266,12 @@ export class TaskQueue extends EventEmitter {
         [projectId],
       );
       for (const r of ready.rows) await this.recordEvent(c, r, 'dependencies_satisfied', 'WAITING', 'QUEUED', actor);
-      return ready.rowCount ?? 0;
+      const approvals = await c.query(`SELECT id FROM tasks WHERE id = ANY($1::text[]) AND kind = 'approval'`, [ready.rows.map((r) => r.id)]);
+      return { count: ready.rowCount ?? 0, approvals: approvals.rows.map((r) => r.id as string) };
     });
-    if (promoted > 0) this.emit('tasks_ready', { projectId });
-    return promoted;
+    for (const taskId of promoted.approvals) this.emit('approval_needed', { projectId, taskId });
+    if (promoted.count > 0) this.emit('tasks_ready', { projectId });
+    return promoted.count;
   }
 
   /** Unblocks tasks that were blocked by dependency failure so they can be re-evaluated (after a human retry). */
@@ -279,6 +313,22 @@ export class TaskQueue extends EventEmitter {
        WHERE id = $1 AND lease_owner = $2 AND status IN ('ASSIGNED', 'RUNNING', 'REVIEW')`,
       [taskId, owner],
     );
+  }
+
+  async heartbeat(taskId: string): Promise<void> {
+    await this.#db.query(`UPDATE tasks SET heartbeat_at = now() WHERE id = $1 AND status IN ('ASSIGNED', 'RUNNING', 'REVIEW')`, [taskId]);
+  }
+
+  /** Adds new prerequisite tasks in front of every task that depends on `taskId` (dynamic graph insertion). */
+  async insertBeforeDependents(projectId: string, taskId: string, newTaskIds: string[], actor: string): Promise<string[]> {
+    const { rows } = await this.#db.query(
+      `UPDATE tasks SET dependencies = (SELECT array_agg(DISTINCT d) FROM unnest(dependencies || $3::text[]) d), updated_at = now(),
+         status = CASE WHEN status = 'QUEUED' THEN 'WAITING' ELSE status END
+       WHERE project_id = $1 AND $2 = ANY(dependencies) AND status IN ('WAITING', 'QUEUED', 'BLOCKED') RETURNING id, project_id`,
+      [projectId, taskId, newTaskIds],
+    );
+    for (const r of rows) await this.recordEvent(this.#db, r, 'dependencies_extended', null, null, actor, { added: newTaskIds, after: taskId });
+    return rows.map((r) => r.id);
   }
 
   async events(taskId: string) {

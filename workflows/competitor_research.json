@@ -1,0 +1,68 @@
+{
+  "intent": "competitor_research",
+  "label": "Competitor Research",
+  "description": "Source-aware comparison of competitor websites and positioning.",
+  "triggers": [
+    "competitor",
+    "competition",
+    "vs",
+    "versus"
+  ],
+  "required": [
+    "intake",
+    "competitors",
+    "synthesis",
+    "report"
+  ],
+  "tasks": [
+    {
+      "key": "intake",
+      "agent_type": "client_intake",
+      "title": "Structure the research request",
+      "mission": "Record the business, market and competitors named.",
+      "depends_on": [],
+      "priority": 95
+    },
+    {
+      "key": "competitors",
+      "agent_type": "competitive_research",
+      "title": "Competitor analysis",
+      "mission": "Compare competitor sites on structure, messaging, UX, design patterns, offers and positioning; classify every claim with sources.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 85
+    },
+    {
+      "key": "market",
+      "agent_type": "content_research",
+      "title": "Market context",
+      "mission": "Common customer needs and conversion opportunities in this market; classify claims.",
+      "depends_on": [
+        "intake"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "synthesis",
+      "agent_type": "research_coordinator",
+      "title": "Research synthesis",
+      "mission": "Reconcile findings into one brief with differentiation opportunities and confidence levels.",
+      "depends_on": [
+        "competitors",
+        "market"
+      ],
+      "priority": 80
+    },
+    {
+      "key": "report",
+      "agent_type": "project_documentation",
+      "title": "Competitor report",
+      "mission": "Write docs/COMPETITORS.md from the synthesis only.",
+      "depends_on": [
+        "synthesis"
+      ],
+      "priority": 50
+    }
+  ]
+}

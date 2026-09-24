@@ -1,0 +1,72 @@
+{
+  "name": "website-build",
+  "version": "1.0",
+  "title": "Website Build",
+  "category": "website",
+  "description": "Build a complete, production-quality static website from structured requirements (blueprint, architecture, design system, approved copy, SEO spec).",
+  "when_to_use": "Any request that ends in a working website or page set.",
+  "triggers": [
+    "website",
+    "site",
+    "build"
+  ],
+  "intents": [
+    "local_business_website",
+    "new_demo",
+    "new_website",
+    "website_improvement",
+    "website_redesign",
+    "landing_page",
+    "3d_website"
+  ],
+  "required_inputs": [
+    "blueprint",
+    "architecture",
+    "design system",
+    "approved copy"
+  ],
+  "tools": [
+    "static_site_audit"
+  ],
+  "instructions": [
+    "Implement every page and section listed in the blueprint; nothing in the blueprint may be silently dropped.",
+    "Semantic HTML5, one stylesheet with design tokens as custom properties, minimal deferred JavaScript as progressive enhancement.",
+    "Every page ships with title, meta description, canonical, Open Graph and the specified JSON-LD.",
+    "Include robots.txt and sitemap.xml; relative links only between pages; no dead anchors."
+  ],
+  "expected_outputs": [
+    "complete site files",
+    "implementation notes",
+    "known limitations"
+  ],
+  "validation": [
+    {
+      "rule": "files_required",
+      "paths": [
+        "index.html"
+      ]
+    },
+    {
+      "rule": "html_hard_failures_zero"
+    },
+    {
+      "rule": "no_hotlinked_images",
+      "severity": "warning"
+    },
+    {
+      "rule": "placeholders_for_unknown_contact"
+    }
+  ],
+  "compatible_agents": [
+    "frontend_developer",
+    "component_builder",
+    "website_architect"
+  ],
+  "sub_skills": [
+    "frontend-engineering",
+    "anti-ai-slop"
+  ],
+  "enabled": true,
+  "changes": "Initial version.",
+  "created": "2026-09-24"
+}

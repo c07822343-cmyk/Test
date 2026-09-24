@@ -3,18 +3,10 @@ import type { Capability } from '../provider/modelRegistry.ts';
 export type Department = 'command' | 'development' | 'content' | 'operations' | 'research' | 'quality';
 
 /** n8n pipeline that renders this agent's execution (Workflow 8-13). */
-export type Pipeline = 'website_development' | 'research' | 'content' | 'seo' | 'design_review' | 'qa';
+export type Pipeline = 'website_development' | 'research' | 'content' | 'seo' | 'design_review' | 'qa' | 'visual_qa';
 
-export type ToolName =
-  | 'site_snapshot'
-  | 'static_site_audit'
-  | 'seo_audit'
-  | 'anti_slop_scan'
-  | 'responsive_render'
-  | 'accessibility_axe'
-  | 'performance_probe'
-  | 'web_fetch_sources'
-  | 'visual_screenshots';
+/** Tool names are defined in src/tools/catalog.ts (validated at registry load). */
+export type ToolName = string;
 
 export interface AgentDefinition {
   type: string;
@@ -44,4 +36,12 @@ export interface AgentDefinition {
   temperature?: number;
   /** Per-agent concurrency cap (defaults to unlimited within the global cap). */
   maxConcurrent?: number;
+  /** Tool permission profile (src/tools/catalog.ts TOOL_PROFILES). */
+  toolProfile: string;
+  /** Lifecycle stage this agent's work normally belongs to. */
+  stage?: string;
+  /** Safe to reuse an identical earlier model response (no side effects, no files, not a reviewer). */
+  cacheable?: boolean;
+  /** Loaded from the agents/ extension folder rather than built in. */
+  extension?: boolean;
 }
