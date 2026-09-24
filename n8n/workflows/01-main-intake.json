@@ -1,0 +1,318 @@
+{
+  "id": "apxWf01Intake000",
+  "name": "ApexWeb 01 — Main Intake",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "c2f3b46a-b477-41b9-a8d3-5fe28b661624",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ],
+      "parameters": {
+        "content": "## 01 · Main Intake\nThe front door. POST `{ \"message\": \"...\", \"idempotency_key\"?: \"...\" }` to `/webhook/apexweb/request` (header `X-ApexWeb-Webhook-Secret`).\n\nThe request becomes a project (duplicates are detected), then the **Main Agent Orchestrator** takes over. You normally talk to the Main Agent through the dashboard chat; this is the same path for external channels.",
+        "width": 520,
+        "height": 240,
+        "color": 4
+      }
+    },
+    {
+      "id": "817def42-2941-4025-ac4c-79de8a58cec7",
+      "name": "MAIN — Receive Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "79774110-4dce-415c-a828-1735fb7f6334",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/request",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "2d0243b7-eb91-43cc-afd7-5ff01d04a2a7",
+      "name": "MAIN — Request Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e388743a-a41f-4823-adea-52d663b8d76b",
+              "leftValue": "={{ typeof $json.body?.message === 'string' && $json.body.message.trim().length > 0 && $json.body.message.length <= 20000 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "67a74596-c03b-433f-a780-adeb2139d9fb",
+      "name": "MAIN — Register Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/intake' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $('MAIN — Receive Request').first().json.body.message, idempotency_key: $('MAIN — Receive Request').first().json.body.idempotency_key ?? null }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "dc725441-0234-4846-a95b-5489145c922e",
+      "name": "MAIN — Duplicate Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "156cb488-2c66-4e16-ace2-56d51b073587",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "23a35ccd-666b-4c67-a67c-37e9e0598bda",
+      "name": "MAIN — Start Main Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        -20
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf02MainAgent",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 02 — Main Agent Orchestrator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "c4aa3224-80a4-44f9-ae52-57fc47915849",
+      "name": "OUTPUT — Acknowledge Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        -100
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ status: $('MAIN — Register Project').first().json.duplicate ? 'duplicate' : 'accepted', project_id: $('MAIN — Register Project').first().json.project_id, message: $('MAIN — Register Project').first().json.duplicate ? 'This request matches an existing project; no duplicate was started.' : 'The Main Agent is interpreting and planning your request.' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "fd58a46c-51ea-4a79-a887-f7baaa41e565",
+      "name": "OUTPUT — Reject Invalid Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        140
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ status: 'rejected', error: 'A non-empty \"message\" (max 20,000 chars) is required.' }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "MAIN — Receive Request": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Request Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Request Valid?": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Register Project",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OUTPUT — Reject Invalid Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Register Project": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Duplicate Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Duplicate Request?": {
+      "main": [
+        [
+          {
+            "node": "OUTPUT — Acknowledge Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Start Main Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Start Main Agent": {
+      "main": [
+        [
+          {
+            "node": "OUTPUT — Acknowledge Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagmain000000",
+      "name": "main"
+    }
+  ],
+  "versionId": "ff942b61-aacd-407c-ad24-47e1353e7c48"
+}

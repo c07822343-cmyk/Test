@@ -79,11 +79,26 @@ describe('HVAC demo end-to-end (internal driver)', () => {
       const starts = events.filter((e) => e.task_id === t.id && e.type === 'started');
       for (const st of starts) {
         for (const dep of t.dependencies) {
+          // Dependencies added later (e.g. a QA fix cycle) only constrain later starts.
+          const created = events.find((e) => e.task_id === dep && e.type === 'created');
+          if (created && created.at > st.at) continue;
           const completedBefore = events.some((e) => e.task_id === dep && (e.type === 'completed' || e.type === 'human_override') && e.at <= st.at);
           assert.ok(completedBefore, `${t.plan_key} started before dependency ${byId.get(dep)?.plan_key} completed`);
         }
       }
     }
+  });
+
+  it('re-ran final QA only after the fix cycle completed', async () => {
+    const { rows } = await db.query(`SELECT id, plan_key FROM tasks WHERE project_id = $1 AND plan_key IN ('final_qa', 'fix_cycle_1')`, [projectId]);
+    const qa = rows.find((r) => r.plan_key === 'final_qa');
+    const fix = rows.find((r) => r.plan_key === 'fix_cycle_1');
+    assert.ok(fix, 'fix task was created by the QA rejection');
+    const { rows: ev } = await db.query(`SELECT task_id, type, at FROM task_events WHERE task_id IN ($1, $2) ORDER BY id`, [qa.id, fix.id]);
+    const qaStarts = ev.filter((e) => e.task_id === qa.id && e.type === 'started');
+    const fixDone = ev.find((e) => e.task_id === fix.id && e.type === 'completed');
+    assert.equal(qaStarts.length, 2);
+    assert.ok(fixDone && qaStarts[1].at >= fixDone.at);
   });
 
   it('ran independent research tasks in parallel', async () => {

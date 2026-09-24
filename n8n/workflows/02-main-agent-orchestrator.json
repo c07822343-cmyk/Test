@@ -1,0 +1,461 @@
+{
+  "id": "apxWf02MainAgent",
+  "name": "ApexWeb 02 — Main Agent Orchestrator",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "0869c796-dc51-41d3-ad31-6bed107b5179",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## 02 · Main Agent Orchestrator\nUSER REQUEST → **MAIN AGENT** → TASK PLAN → TASK QUEUE.\n\n1. Interpret the request (NVIDIA via Key Manager)\n2. Ask the user only if genuinely blocked\n3. Task Decomposer adapts the ApexWeb workflow template into a validated dependency graph\n4. Enqueue the graph and wake the dispatcher.\n\nThe Main Agent never does specialist work itself.",
+        "width": 560,
+        "height": 260,
+        "color": 4
+      }
+    },
+    {
+      "id": "5b56e20d-6e69-487b-a06f-7a747d349896",
+      "name": "MAIN — Orchestrate Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "fb0759c7-d317-457e-a5db-cd212eb050b8",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/orchestrate",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "b0cd35a4-7617-46ea-a52f-95451595e2ad",
+      "name": "MAIN — Called By Intake",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "d9f69712-78fa-4de3-a2eb-fc34d3d86317",
+      "name": "MAIN — Project Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        80
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ project_id: $json.body?.project_id ?? $json.project_id }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "25959bec-34d7-46f9-a487-2d6996b94b33",
+      "name": "MAIN — Interpret Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $json.project_id + '/interpret' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "NVIDIA planning model, routed by the Model Router and leased from the Key Manager",
+      "notesInFlow": true
+    },
+    {
+      "id": "d82270ae-4cf0-4396-a9e4-c92b2832eb67",
+      "name": "MAIN — Needs Clarification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3e0f67f8-29b7-4096-aabc-1dc57f6ebc69",
+              "leftValue": "={{ $json.needs_clarification }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "ac9bf699-d086-4050-a2bb-a74bb94e8f90",
+      "name": "OUTPUT — Clarification Requested",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -120
+      ],
+      "parameters": {},
+      "notes": "Questions were posted to the user; planning resumes when they answer",
+      "notesInFlow": true
+    },
+    {
+      "id": "3e408a6a-dcc3-4baf-a7f7-1e65f8b07666",
+      "name": "MAIN — Build Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/plan' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Task Decomposer + plan validation (registry, DAG, required stages, review gates)",
+      "notesInFlow": true
+    },
+    {
+      "id": "22c51374-c223-4133-ac8a-76570174f978",
+      "name": "QUEUE — Enqueue Task Graph",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/enqueue' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "7f9cde07-c754-4ccf-ae15-189dbd97626a",
+      "name": "ROUTER — Wake Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "138c1b3a-b6b5-4f3d-ab4a-3ada56a1c615",
+      "name": "MAIN — Report Planning Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $('MAIN — Project Context').first().json.project_id + '/fail-planning' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: String($json.error?.message ?? $json.error ?? 'planning failed').slice(0, 1500) }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "MAIN — Orchestrate Webhook": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Project Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Called By Intake": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Project Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Project Context": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Interpret Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Interpret Request": {
+      "main": [
+        [
+          {
+            "node": "MAIN — Needs Clarification?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Report Planning Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Needs Clarification?": {
+      "main": [
+        [
+          {
+            "node": "OUTPUT — Clarification Requested",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Build Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Build Plan": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Enqueue Task Graph",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Report Planning Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Enqueue Task Graph": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Report Planning Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagmain000000",
+      "name": "main"
+    }
+  ],
+  "versionId": "818f08bb-4bc5-49df-a693-15a74a63ca78"
+}

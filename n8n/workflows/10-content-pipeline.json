@@ -1,0 +1,1100 @@
+{
+  "id": "apxWf10Content00",
+  "name": "ApexWeb 10 — Content Pipeline",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "7421351f-8621-4f77-a34e-7f3477731121",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -440
+      ],
+      "parameters": {
+        "content": "## 10 — Content Pipeline\nSPECIALIST AGENT execution, one execution per task.\n\n**Agents:** Website Copywriter, Brand Voice, Conversion Optimization (review gate), Proposal Agent, Project Documentation, Revision Manager.\n\nStart → pre-execution tools (real audits) → Model Router → Context Builder (only what this task needs) → Key Manager / 55 RPM limiter → NVIDIA call → structured-output review (schema, files, sub-agents, review gates) → next stage. Failures go to the Error / Retry Manager.",
+        "width": 640,
+        "height": 300,
+        "color": 5
+      }
+    },
+    {
+      "id": "18ab560a-e38e-4c6e-ae27-739a1ee55080",
+      "name": "PIPELINE — Receive Task",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "035d9e05-5ba4-4ac4-a4f3-281a2f4da849",
+      "name": "EXECUTOR — Start Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('PIPELINE — Receive Task').first().json.task_id + '/start' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "7ac32f61-3ebd-4631-a16e-090ed56ed6ef",
+      "name": "TOOLS — Run Pre-Execution Tools",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('PIPELINE — Receive Task').first().json.task_id + '/tools' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Deterministic evidence: static/SEO/anti-slop audits, Chromium responsive/axe/performance checks, fetched sources",
+      "notesInFlow": true
+    },
+    {
+      "id": "dc7d63d3-6728-4811-a5a1-9d24de644bb4",
+      "name": "MODEL — Capability Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        120
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ task_id: $('PIPELINE — Receive Task').first().json.task_id }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "0c4aed69-f24f-4114-ac56-6fc748b7414d",
+      "name": "MODEL — Select NVIDIA Model",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf06ModelRout",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 06 — Model Router"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "86f2fa0f-0e59-4001-aedf-1682c766fd8b",
+      "name": "MODEL — Model Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7bcfadb5-4677-4f7b-a390-5a39683d765a",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d0e0493e-de65-4da1-a0eb-ffcd10462d51",
+      "name": "CONTEXT — Build Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('PIPELINE — Receive Task').first().json.task_id + '/context' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "934d8851-cf02-4147-a50d-6619a68086c9",
+      "name": "KEYPOOL — Lease Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1210,
+        60
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ task_id: $('PIPELINE — Receive Task').first().json.task_id }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "d77c8399-b73b-4b3d-adfe-7e3e4baa175e",
+      "name": "KEYPOOL — Acquire Key Lease",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1320,
+        -60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf04KeyManagr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 04 — NVIDIA Key Manager"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "add0f51d-28c0-46a4-a205-d077899465ea",
+      "name": "KEYPOOL — Lease Granted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        -60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f999429a-dec8-455a-ad7e-f3aa3d982379",
+              "leftValue": "={{ $json.granted }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "092794f1-66d0-4fee-ad49-0a196f17c1a6",
+      "name": "EXECUTOR — Run Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('PIPELINE — Receive Task').first().json.task_id + '/invoke' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lease_id: $json.lease_id }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "One NVIDIA call with the leased key (secret stays in the core)",
+      "notesInFlow": true
+    },
+    {
+      "id": "8b38bd32-53fb-49d5-a92f-daaf8c660cb9",
+      "name": "EXECUTOR — Call Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        -120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "02a0b456-5b3f-4990-a03b-0bdd148184f2",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "458280d1-ffe4-4d5e-a247-6cff7e6d54c6",
+      "name": "REVIEW — Validate Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('PIPELINE — Receive Task').first().json.task_id + '/review' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Schema + files + sub-agents + review gates",
+      "notesInFlow": true
+    },
+    {
+      "id": "956d3773-1787-4df7-a1c7-cd251bbd3af6",
+      "name": "REVIEW — Route Outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2420,
+        -200
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "82fc4ab5-1af2-411b-a7c7-c27e1d66c29e",
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "completed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Completed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "46d62e76-2c60-4dd6-a526-3b9422c73957",
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "waiting_on_subtasks",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sub-agents spawned"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "89c13814-bd21-4f81-acca-3ad235e76234",
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "revision_requested",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Revision requested"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9146258d-a280-4728-a756-7f446d272b26",
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "fix_cycle_started",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "QA fix cycle"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3c92bcf8-c59b-4595-a89c-e84009ce77ef",
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Retry scheduled"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other"
+        }
+      }
+    },
+    {
+      "id": "3eacc476-f3af-4240-a526-2affb1d96745",
+      "name": "QUEUE — Task Completed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2680,
+        -440
+      ],
+      "parameters": {},
+      "notesInFlow": false
+    },
+    {
+      "id": "3dcb6f05-d3fd-439e-a584-6d3ac56d4429",
+      "name": "SUBAGENTS — Sub-Agents Spawned",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2680,
+        -320
+      ],
+      "parameters": {},
+      "notes": "Parent waits; sub-agent results come back for synthesis",
+      "notesInFlow": true
+    },
+    {
+      "id": "6a912605-25e2-4f2e-afbb-a8d94dbc3244",
+      "name": "REVIEW — Sent Back For Revision",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2680,
+        -200
+      ],
+      "parameters": {},
+      "notes": "Reviewer rejected the target work; it re-runs with feedback",
+      "notesInFlow": true
+    },
+    {
+      "id": "68dc9394-2bf9-47c0-a497-3d5af81dbbe6",
+      "name": "QA — Fix Cycle Started",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2680,
+        -80
+      ],
+      "parameters": {},
+      "notes": "Website Debugger fixes QA findings, then QA re-runs",
+      "notesInFlow": true
+    },
+    {
+      "id": "10cb36db-6f74-4a02-ada1-0152a393a836",
+      "name": "ROUTER — Wake Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2940,
+        -260
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "461f5e38-1900-40d9-a15e-ca71bfa7b47d",
+      "name": "RETRY — Decided By Review",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2680,
+        60
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ task_id: $('PIPELINE — Receive Task').first().json.task_id, already_decided: true, decision: $json.decision ?? null, outcome: $json.outcome, error_class: $json.detail?.error?.class ?? null, message: $json.detail?.error?.message ?? null }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "53e5fc36-733a-4f6b-a759-2d82c34100d9",
+      "name": "RETRY — Model Call Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2200,
+        40
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ task_id: $('PIPELINE — Receive Task').first().json.task_id, already_decided: false, error_class: $json.error_class, message: $json.message, retry_after_ms: $json.retry_after_ms ?? null }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "9b70306a-a3aa-4f7d-af8d-97a7eda32c3d",
+      "name": "RETRY — Step Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        220
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ task_id: $('PIPELINE — Receive Task').first().json.task_id, already_decided: false, error_class: $json.error_class ?? (String($json.error?.message ?? $json.error ?? '').includes('503') ? 'model_unavailable' : 'internal_error'), message: String($json.message ?? $json.error?.message ?? $json.error ?? 'step failed').slice(0, 1500) }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "3771f8f6-1c8b-4bf7-a307-dc67c4ac3c84",
+      "name": "RETRY — Hand To Error Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2940,
+        140
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf15ErrRetry0",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 15 — Error / Retry Manager"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "PIPELINE — Receive Task": {
+      "main": [
+        [
+          {
+            "node": "EXECUTOR — Start Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXECUTOR — Start Task": {
+      "main": [
+        [
+          {
+            "node": "TOOLS — Run Pre-Execution Tools",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TOOLS — Run Pre-Execution Tools": {
+      "main": [
+        [
+          {
+            "node": "MODEL — Capability Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MODEL — Capability Request": {
+      "main": [
+        [
+          {
+            "node": "MODEL — Select NVIDIA Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MODEL — Select NVIDIA Model": {
+      "main": [
+        [
+          {
+            "node": "MODEL — Model Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MODEL — Model Available?": {
+      "main": [
+        [
+          {
+            "node": "CONTEXT — Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONTEXT — Build Context": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Lease Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Lease Request": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Acquire Key Lease",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Acquire Key Lease": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Lease Granted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Lease Granted?": {
+      "main": [
+        [
+          {
+            "node": "EXECUTOR — Run Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXECUTOR — Run Agent": {
+      "main": [
+        [
+          {
+            "node": "EXECUTOR — Call Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EXECUTOR — Call Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "REVIEW — Validate Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Model Call Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REVIEW — Validate Result": {
+      "main": [
+        [
+          {
+            "node": "REVIEW — Route Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REVIEW — Route Outcome": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Task Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SUBAGENTS — Sub-Agents Spawned",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "REVIEW — Sent Back For Revision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QA — Fix Cycle Started",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Decided By Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Decided By Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Task Completed": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SUBAGENTS — Sub-Agents Spawned": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REVIEW — Sent Back For Revision": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA — Fix Cycle Started": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Wake Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Decided By Review": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Hand To Error Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Model Call Failed": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Hand To Error Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Step Failed": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Hand To Error Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagpipeline00",
+      "name": "pipeline"
+    }
+  ],
+  "versionId": "b0ee80a8-376d-4492-a375-60f5f676d72c"
+}

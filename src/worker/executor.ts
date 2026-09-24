@@ -62,6 +62,8 @@ function summarise(t: TaskRow) {
 }
 
 const WORKER_STATUSES: TaskRow['status'][] = ['ASSIGNED', 'RUNNING', 'REVIEW'];
+/** Hard stop for automatic retries of any kind on one task (key-level, model switches, transient). */
+export const MAX_FAILURES_PER_TASK = 10;
 
 export class TaskExecutor {
   readonly d: ExecutorDeps;
@@ -403,11 +405,18 @@ export class TaskExecutor {
       return { outcome: 'failed', task: summarise(task), detail: { ignored: `task is ${task.status}` } };
     }
     const agent = getAgent(task.agent_type);
+    const errorClass = err.errorClass as ErrorClass;
+    // Bounded retries: every model already tried is excluded from switching, and
+    // the total number of failures per task is capped regardless of class.
+    const modelsTried: string[] = [...new Set([...(task.inputs?.models_tried ?? []), ...(task.assigned_model ? [task.assigned_model] : [])])];
+    const failureCount = (task.inputs?.failure_count ?? 0) + 1;
     const alternatives = this.d.provider.router
       .candidates({ capability: (task.capability ?? agent.capability) as Capability, vision: agent.capability === 'vision' })
-      .map((m) => m.id);
-    const errorClass = err.errorClass as ErrorClass;
-    const decision = decideFailure({
+      .map((m) => m.id)
+      .filter((m) => !modelsTried.includes(m));
+    const decision = failureCount > MAX_FAILURES_PER_TASK
+      ? { action: task.optional ? 'fail_optional' as const : 'escalate' as const, delayMs: 0, refundAttempt: false, nextModel: null, resetAttempts: false, reason: `${failureCount - 1} failures on this task; stopping automatic retries` }
+      : decideFailure({
       errorClass,
       attempt: task.attempt,
       maxAttempts: task.max_attempts,
@@ -418,9 +427,11 @@ export class TaskExecutor {
       rescued: !!task.inputs?.rescued,
       retryAfterMs: err.retryAfterMs ?? null,
     });
+    const nextModelValid = decision.nextModel == null || alternatives.includes(decision.nextModel);
+    if (!nextModelValid) throw new Error('failure manager proposed a model that was already tried');
     const error = { class: errorClass, message: err.message.slice(0, 1500), attempt: task.attempt, model: task.assigned_model, key: task.assigned_key, decision: decision.action, at: new Date().toISOString() };
     const eventDetail = { error, decision };
-    const inputs = { ...task.inputs };
+    const inputs: Record<string, any> = { ...task.inputs, failure_count: failureCount, models_tried: modelsTried };
     if (errorClass === 'malformed_output' || errorClass === 'validation_error') inputs.previous_attempt_error = err.message.slice(0, 1500);
     let updated: TaskRow;
     switch (decision.action) {

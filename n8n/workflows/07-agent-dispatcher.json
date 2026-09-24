@@ -1,0 +1,668 @@
+{
+  "id": "apxWf07Dispatchr",
+  "name": "ApexWeb 07 — Agent Dispatcher",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "50d36f44-4108-49bb-a35f-e05a0359d0df",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -420
+      ],
+      "parameters": {
+        "content": "## 07 · Agent Dispatcher\nTASK QUEUE → **AGENT DISPATCH** → SPECIALIST PIPELINES.\n\nClaims every ready task and starts one pipeline execution per task **without waiting**, so independent tasks run in parallel (each appears as its own execution). Tasks still waiting on dependencies are listed on the lower branch.\n\nWoken by the core when tasks become ready, by pipelines when they finish, and every minute as a safety net.",
+        "width": 620,
+        "height": 300,
+        "color": 6
+      }
+    },
+    {
+      "id": "b903ec91-25b0-477c-abef-8f2ee80f4bb8",
+      "name": "ROUTER — Dispatch Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -60
+      ],
+      "webhookId": "7395a851-427f-4cb7-a7dc-73d055ea170c",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/dispatch",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "2823ceb5-b7cd-44ea-a18c-3864a447e86a",
+      "name": "ROUTER — Safety Net Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2722d14d-71ee-40c9-a318-d76834572cd4",
+      "name": "ROUTER — Called By Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        260
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "6e7a7e5c-e5ba-4e7c-ac91-cb47cefb2d23",
+      "name": "QUEUE — Claim Ready Tasks",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        100
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf03TaskQueue",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 03 — Task Queue"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b361ac16-57f1-46be-a391-9665dd814c74",
+      "name": "QUEUE — Split Claimed Tasks",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        500,
+        20
+      ],
+      "parameters": {
+        "fieldToSplitOut": "claimed",
+        "options": {}
+      }
+    },
+    {
+      "id": "9e9a45bb-d486-45ed-a9e9-a2956e85441c",
+      "name": "QUEUE — Split Waiting Tasks",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "fieldToSplitOut": "waiting_on_dependencies",
+        "options": {}
+      }
+    },
+    {
+      "id": "70fc3dbe-d889-44d8-acb8-e720a9d977b3",
+      "name": "QUEUE — Waiting On Dependencies",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {},
+      "notes": "These tasks start automatically when their dependencies complete",
+      "notesInFlow": true
+    },
+    {
+      "id": "93572396-8b7a-492c-aa14-e5d03a9df984",
+      "name": "ROUTER — Route By Pipeline",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        740,
+        20
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ccaf63bc-62d4-4e77-abd6-77a5f3db1bb5",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "website_development",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Website Development"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9adc74c2-b946-4d31-a24b-dabaa5d35c76",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "research",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Research"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6c0257f5-6c6c-4664-adef-4463183d7f8b",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "content",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Content"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3de80a01-f214-4658-aa90-5322d3cabc00",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "seo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2219adab-22a1-4ae4-a05f-9512dc3fdc4a",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "design_review",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Design Review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4e2472ee-92b7-4f0c-a889-a267bae67c2f",
+                    "leftValue": "={{ $json.pipeline }}",
+                    "rightValue": "qa",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "QA"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other"
+        }
+      }
+    },
+    {
+      "id": "05116de8-85ee-40b5-ab9b-97411ab2f241",
+      "name": "EXECUTOR — Website Development Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        -260
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf08WebDevPip",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 08 — Website Development Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "c287b5b9-967f-48f8-afdb-a4c8703b548b",
+      "name": "EXECUTOR — Research Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        -140
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf09Research0",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 09 — Research Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "5c2f70de-0dbc-46ab-aa45-3b4825a7e924",
+      "name": "EXECUTOR — Content Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        -20
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf10Content00",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 10 — Content Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "7ebf3481-3cca-4ad3-aea7-8d2de2445ee6",
+      "name": "EXECUTOR — SEO Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        100
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf11SeoPipeln",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 11 — SEO Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "ea320e36-6036-4a7b-a64a-c947fc50b15c",
+      "name": "EXECUTOR — Design Review Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        220
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf12DesignRev",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 12 — Design Review Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "2757e2f0-e976-41a9-abce-aae9d48806e5",
+      "name": "EXECUTOR — QA Pipeline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        340
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf13QaPipelin",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 13 — QA Pipeline"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "58567ca8-e8b3-4c7f-a02b-75e626f45a39",
+      "name": "ROUTER — Unknown Pipeline",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        480
+      ],
+      "parameters": {},
+      "notes": "Should never happen: every registered agent maps to a pipeline",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "ROUTER — Route By Pipeline": {
+      "main": [
+        [
+          {
+            "node": "EXECUTOR — Website Development Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — Research Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — Content Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — SEO Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — Design Review Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EXECUTOR — QA Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ROUTER — Unknown Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTER — Dispatch Webhook": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Claim Ready Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTER — Safety Net Every Minute": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Claim Ready Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTER — Called By Workflow": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Claim Ready Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Claim Ready Tasks": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Split Claimed Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "QUEUE — Split Waiting Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Split Claimed Tasks": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Route By Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Split Waiting Tasks": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Waiting On Dependencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagrouter0000",
+      "name": "router"
+    }
+  ],
+  "versionId": "3524daa1-2669-4f06-a167-47af02926e12"
+}

@@ -1,0 +1,139 @@
+{
+  "id": "apxWf05RateLimit",
+  "name": "ApexWeb 05 — NVIDIA Rate Limiter",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "1615a8a2-1a2d-44ee-a40f-c780e0fec3e9",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## 05 · NVIDIA Rate Limiter\nHard ceiling: **55 requests per rolling 60 s per key** (local safety ceiling, enforced atomically in the core — not a counter that resets each minute).\n\nWhen no key has headroom, this workflow waits exactly until capacity is expected back (oldest grant leaving the window, or cooldown/Retry-After ending), with jitter so queued requests do not retry in lock-step.",
+        "width": 560,
+        "height": 260,
+        "color": 3
+      }
+    },
+    {
+      "id": "971cda18-3bc9-4603-a6e8-e9a7b49c467d",
+      "name": "LIMITER — Receive Wait Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "f67b6b66-dc55-4630-a399-a0e205f4b6c9",
+      "name": "LIMITER — Check 55 RPM Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The core reports when the earliest capacity returns (rolling window / cooldown / in-flight cap).\nconst d = $input.first().json;\nconst hint = Number(d.retry_after_ms ?? 1000);\nconst jitter = Math.random() * 0.3;\nconst wait_s = Math.min(10, Math.max(0.25, hint / 1000 + jitter));\nreturn [{ json: { reason: d.reason ?? \"capacity\", retry_after_ms: hint, queue_depth: d.queue_depth ?? null, wait_s: Math.round(wait_s * 100) / 100 } }];"
+      }
+    },
+    {
+      "id": "50b0378f-63ac-4ab0-ac6c-aeb97414b21a",
+      "name": "LIMITER — Wait For Capacity",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        0
+      ],
+      "webhookId": "510ce694-4f79-409a-a3bf-2b25d3386082",
+      "parameters": {
+        "amount": "={{ $json.wait_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "a0b546b2-ecd6-46eb-a88a-64bc7f2fe12e",
+      "name": "LIMITER — Capacity Window Elapsed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {},
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "LIMITER — Receive Wait Request": {
+      "main": [
+        [
+          {
+            "node": "LIMITER — Check 55 RPM Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LIMITER — Check 55 RPM Window": {
+      "main": [
+        [
+          {
+            "node": "LIMITER — Wait For Capacity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LIMITER — Wait For Capacity": {
+      "main": [
+        [
+          {
+            "node": "LIMITER — Capacity Window Elapsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagnvidia0000",
+      "name": "nvidia"
+    }
+  ],
+  "versionId": "7b7de18a-e040-4763-a936-9f6977ce25a2"
+}

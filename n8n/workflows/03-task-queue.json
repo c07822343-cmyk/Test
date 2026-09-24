@@ -1,0 +1,218 @@
+{
+  "id": "apxWf03TaskQueue",
+  "name": "ApexWeb 03 — Task Queue",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "66e6b0ec-e8c6-4c85-a58f-640929db49f7",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## 03 · Task Queue\nPersistent queue in Postgres (priorities, dependencies, concurrency cap, retries, dead letters, cancellation, pause, idempotency).\n\n**Claim** returns tasks whose dependencies are all complete, never exceeding the global concurrency cap, plus the tasks still **waiting on dependencies**.\n\nThe reaper returns tasks whose execution lease expired (lost execution) to retry handling.",
+        "width": 560,
+        "height": 260,
+        "color": 6
+      }
+    },
+    {
+      "id": "4abb964b-0276-4286-aead-d0fee1568dab",
+      "name": "QUEUE — Receive Claim Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "c1fa78ed-6362-42cf-a972-f03433b7ba8b",
+      "name": "QUEUE — Claim Ready Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/queue/claim' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limit: 64, owner: 'n8n' }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "f2acdd92-f825-4158-ab62-c9f83200af48",
+      "name": "QUEUE — Check Dependencies",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ claimed: $json.claimed, claimed_count: $json.claimed_count, waiting_on_dependencies: $json.waiting_on_dependencies, waiting_count: $json.waiting_on_dependencies.length }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "323bb5b1-6fed-412b-a83e-40fb1669873f",
+      "name": "QUEUE — Lease Reaper Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        260
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9c279d3a-5c1f-4865-aab9-46a9c36c730e",
+      "name": "QUEUE — Reap Expired Leases",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/queue/reap' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "QUEUE — Receive Claim Request": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Claim Ready Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Claim Ready Tasks": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Check Dependencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QUEUE — Lease Reaper Every Minute": {
+      "main": [
+        [
+          {
+            "node": "QUEUE — Reap Expired Leases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagqueue00000",
+      "name": "queue"
+    }
+  ],
+  "versionId": "3823d914-48bc-46ce-aff9-625f15fa816f"
+}

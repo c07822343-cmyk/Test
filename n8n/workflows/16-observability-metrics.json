@@ -1,0 +1,268 @@
+{
+  "id": "apxWf16Metrics00",
+  "name": "ApexWeb 16 — Observability / Metrics",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a7eee81b-ef2b-40d4-adad-2ab7c6571787",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -400
+      ],
+      "parameters": {
+        "content": "## 16 · Observability / Metrics\nEvery minute: live runtime state from the core (not mocked) — active/queued/completed/failed/retrying tasks, active vs idle agents, per-key RPM against the 55 ceiling, current model, latency, error rate, queue depth, project progress, task durations. Snapshots are stored so trends survive restarts.\n\nGET `/webhook/apexweb/metrics` renders the same view on demand. Connect Slack/email to **METRICS — Raise Alert**.",
+        "width": 620,
+        "height": 300,
+        "color": 5
+      }
+    },
+    {
+      "id": "cb3145e4-58c3-45fd-a092-4472615ebe55",
+      "name": "METRICS — Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "03d2899b-eef3-407f-a6ce-938e2e587fe0",
+      "name": "METRICS — On-Demand View",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "f840bc9c-fe85-4796-a009-7c9494f85b98",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "apexweb/metrics",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "529ce410-f3b9-40de-a124-a7ff00271fe4",
+      "name": "METRICS — Snapshot Runtime State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/observability/snapshot' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "stopWorkflow",
+      "notesInFlow": false
+    },
+    {
+      "id": "7fb81c46-9251-476f-a5f0-cc0aff8a3b45",
+      "name": "METRICS — Render Key Usage Bars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        20
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const { metrics, text } = $input.first().json;\nconst bar = (used, cap, w = 23) => { const f = cap > 0 ? Math.round(Math.min(used, cap) / cap * w) : 0; return \"█\".repeat(f) + \"░\".repeat(w - f); };\nconst keys = metrics.nvidia.keys.map(k => ({ key: k.id.replace(\"key_\", \"KEY \"), usage: `${bar(k.rpm_used, k.rpm_ceiling)} ${k.rpm_used}/${k.rpm_ceiling} RPM`, health: k.health, model: k.current_model, inflight: k.inflight, latency_p50_ms: k.latency_p50_ms, error_rate_5m: k.error_rate_5m }));\nconst t = metrics.tasks;\nreturn [{ json: { generated_at: metrics.generated_at, keys, tasks: `${t.active} active · ${t.queued} queued · ${t.waiting} waiting · ${t.retrying} retrying · ${t.completed} completed · ${t.failed} failed`, agents: `${metrics.agents.active} active / ${metrics.agents.idle} idle`, nvidia: `${metrics.nvidia.requests_last_minute} req/min · p95 ${metrics.nvidia.latency_p95_ms ?? \"-\"}ms · error rate ${(metrics.nvidia.error_rate_5m * 100).toFixed(1)}%`, queue_depth: t.queue_depth, projects: metrics.projects.map(p => `${p.name}: ${p.completed}/${p.total} (${p.status})`), dashboard: text } }];"
+      }
+    },
+    {
+      "id": "83b69880-4a63-4a5d-a608-8acab54e3a8c",
+      "name": "METRICS — Alerts Raised?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99eb08ef-24dc-43f6-a038-c776b180793e",
+              "leftValue": "={{ ($json.alerts ?? []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c373a37c-8e33-4ad4-af05-fbbbfa8c364b",
+      "name": "METRICS — Raise Alert",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ],
+      "parameters": {},
+      "notes": "Attach Slack / email / PagerDuty here",
+      "notesInFlow": true
+    },
+    {
+      "id": "f791c89d-3c06-4ff2-a4da-4b911332e486",
+      "name": "METRICS — All Systems Nominal",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {},
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "METRICS — Every Minute": {
+      "main": [
+        [
+          {
+            "node": "METRICS — Snapshot Runtime State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METRICS — On-Demand View": {
+      "main": [
+        [
+          {
+            "node": "METRICS — Snapshot Runtime State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METRICS — Snapshot Runtime State": {
+      "main": [
+        [
+          {
+            "node": "METRICS — Render Key Usage Bars",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "METRICS — Alerts Raised?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METRICS — Alerts Raised?": {
+      "main": [
+        [
+          {
+            "node": "METRICS — Raise Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "METRICS — All Systems Nominal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagobservabil",
+      "name": "observability"
+    }
+  ],
+  "versionId": "6ddb3676-67e8-4265-a472-20a0a1248c21"
+}

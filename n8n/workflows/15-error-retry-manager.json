@@ -1,0 +1,470 @@
+{
+  "id": "apxWf15ErrRetry0",
+  "name": "ApexWeb 15 — Error / Retry Manager",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "da3f5b03-d6ff-4a7f-ab76-3ef7630729b6",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -420
+      ],
+      "parameters": {
+        "content": "## 15 · Error / Retry Manager\nFailed attempts land here. The Failure Manager decides:\n- attempt 1 → **retry**\n- attempt 2 → **retry with backoff** (switching model if a fallback exists)\n- attempt 3 → failed → one **rescue** on another model, else **escalate to the Main Agent**\n- 429 / capacity / revoked key → re-lease on another **eligible key** (does not burn an attempt, bounded)\n\nNo endless retries: everything is capped and dead-lettered.",
+        "width": 600,
+        "height": 320,
+        "color": 2
+      }
+    },
+    {
+      "id": "a5806e8b-071e-4eb5-a57a-040081b5a44d",
+      "name": "RETRY — Receive Failure",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "6713db48-b172-46c7-ac03-725dece0bd95",
+      "name": "RETRY — Already Decided?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "43deeeda-df91-4048-aa4d-36d07676306d",
+              "leftValue": "={{ $json.already_decided }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "8a494c46-a03f-4e8b-a96d-8a381060caa8",
+      "name": "RETRY — Record Failure & Decide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $json.task_id + '/fail' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ error_class: $json.error_class ?? 'internal_error', message: String($json.message ?? '').slice(0, 3900), retry_after_ms: $json.retry_after_ms ?? null }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "2bfc0c7c-cb46-4be7-a9a2-d3f3bab28143",
+      "name": "RETRY — Classify Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const d = $input.first().json;\nconst decision = d.decision ?? null;\nconst action = decision?.action ?? \"none\";\nconst retryActions = [\"retry\", \"retry_backoff\", \"retry_other_key\", \"switch_model\", \"rescue\"];\nconst category = retryActions.includes(action) ? \"retry\" : action === \"escalate\" ? \"escalate\" : action === \"fail_optional\" ? \"skip_optional\" : \"none\";\nconst delay_s = Math.min(60, Math.max(1, Math.round((decision?.delayMs ?? 1000) / 100) / 10));\nreturn [{ json: { task_id: d.task?.task_id ?? d.task_id ?? null, action, category, delay_s, reason: decision?.reason ?? null, next_model: decision?.nextModel ?? null } }];"
+      }
+    },
+    {
+      "id": "74813b16-2601-4a6a-aff6-9e1e6d124d93",
+      "name": "RETRY — Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7c10cc80-ef01-4642-a5e6-12f8999616d8",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Retry"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9b0abb58-7802-48ea-aab6-0165d0f420e3",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "escalate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Escalate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7d6baf3f-2a76-4eb3-aef7-eab9af501726",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "skip_optional",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Optional task skipped"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other"
+        }
+      }
+    },
+    {
+      "id": "be27d4eb-1e2d-483b-ab99-ae9e5c8330c7",
+      "name": "RETRY — Backoff Before Re-dispatch",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        -140
+      ],
+      "webhookId": "612bdaea-94ce-4267-adaa-f72871b2846b",
+      "parameters": {
+        "amount": "={{ $json.delay_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "fd3dede2-5886-40f5-ab2d-2f4caa6c40ff",
+      "name": "MAIN — Escalated To Main Agent",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {},
+      "notes": "Task failed after retries, model switch and rescue; the Main Agent flags the project for the user",
+      "notesInFlow": true
+    },
+    {
+      "id": "95b20788-d06d-4f26-afb7-a0081599e027",
+      "name": "RETRY — Optional Task Skipped",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        140
+      ],
+      "parameters": {},
+      "notes": "Optional task failed; dependents proceed without it",
+      "notesInFlow": true
+    },
+    {
+      "id": "2ccd9780-c389-4f4e-af57-c3168eab54d9",
+      "name": "ROUTER — Re-dispatch",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf07Dispatchr",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 07 — Agent Dispatcher"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "1e23b48d-4e35-4e6f-aab4-5b041faf484d",
+      "name": "RETRY — No Action Needed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        280
+      ],
+      "parameters": {},
+      "notesInFlow": false
+    },
+    {
+      "id": "470f5a88-3977-4bb3-ae7c-2a0e5869b77c",
+      "name": "RETRY — Could Not Record Failure",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        260
+      ],
+      "parameters": {},
+      "notes": "Core unreachable; the lease reaper will retry the task when its lease expires",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "RETRY — Receive Failure": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Already Decided?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Already Decided?": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Classify Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Record Failure & Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Record Failure & Decide": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Classify Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Could Not Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Classify Decision": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Route Decision": {
+      "main": [
+        [
+          {
+            "node": "RETRY — Backoff Before Re-dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MAIN — Escalated To Main Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — Optional Task Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RETRY — No Action Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Backoff Before Re-dispatch": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Re-dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN — Escalated To Main Agent": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Re-dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RETRY — Optional Task Skipped": {
+      "main": [
+        [
+          {
+            "node": "ROUTER — Re-dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagretry00000",
+      "name": "retry"
+    }
+  ],
+  "versionId": "0ac17af3-c565-4a76-a4f7-12fb82ad0dc8"
+}

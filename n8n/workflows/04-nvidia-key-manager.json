@@ -1,0 +1,328 @@
+{
+  "id": "apxWf04KeyManagr",
+  "name": "ApexWeb 04 — NVIDIA Key Manager",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a19ea2f7-ab3e-47e0-aead-69586a224c84",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -380
+      ],
+      "parameters": {
+        "content": "## 04 · NVIDIA Key Manager\nEvery NVIDIA request is leased here first. The core picks the healthiest eligible key (window headroom, error rate, latency, cooldown, in-flight load, model compatibility) inside a locked Postgres transaction.\n\nIf every key is at its 55 RPM ceiling or cooling down, the request **queues** (Rate Limiter wait loop) — work is never dropped.\n\nOnly key ids (key_1…key_4) appear here; secrets never leave the core.",
+        "width": 600,
+        "height": 300,
+        "color": 3
+      }
+    },
+    {
+      "id": "d420db47-056d-42d9-accf-3f27da83f594",
+      "name": "KEYPOOL — Receive Lease Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "cb374dd9-f5b3-48cf-a81f-7434c4876e81",
+      "name": "KEYPOOL — Select Key",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('KEYPOOL — Receive Lease Request').first().json.task_id + '/lease' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "b189382f-e74f-483d-ae1b-ec8b1dbe4e1b",
+      "name": "KEYPOOL — Key Granted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1faf9ca5-2827-4fc4-a345-087ffa2e55cb",
+              "leftValue": "={{ $json.granted }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "a48d35f1-3ae5-4f16-a042-62f8b3fbaf9c",
+      "name": "KEYPOOL — Lease Granted",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -140
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ granted: true, task_id: $('KEYPOOL — Receive Lease Request').first().json.task_id, lease_id: $json.lease_id, key: $json.key, model: $json.model, window_used: $json.window_used, ceiling: $json.ceiling }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2289c35-0e03-4ac2-a370-5f0f2dd932f0",
+      "name": "KEYPOOL — Wait Budget Left?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7992361a-ad9c-4d94-a70d-9b002c9a5871",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 120,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d7eda6e4-aa29-4232-ae9e-aa4ee3055677",
+      "name": "LIMITER — Wait For Capacity",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        60
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "apxWf05RateLimit",
+          "mode": "list",
+          "cachedResultName": "ApexWeb 05 — NVIDIA Rate Limiter"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "5c42d24f-a894-4c9c-a77c-8f975f017e5c",
+      "name": "KEYPOOL — Capacity Timeout",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        220
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ granted: false, error_class: 'capacity_timeout', message: 'All eligible NVIDIA keys stayed at capacity for the whole wait budget' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7a8c0bd5-a6d6-4153-ac5f-808184747386",
+      "name": "KEYPOOL — Lease Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        200
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ granted: false, error_class: String($json.error?.message ?? $json.error ?? '').includes('no_keys') || String($json.error?.message ?? '').includes('503') ? 'no_keys' : 'internal_error', message: String($json.error?.message ?? $json.error ?? 'lease request failed').slice(0, 1000) }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "KEYPOOL — Receive Lease Request": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Select Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Select Key": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Key Granted?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KEYPOOL — Lease Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Key Granted?": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Lease Granted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KEYPOOL — Wait Budget Left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KEYPOOL — Wait Budget Left?": {
+      "main": [
+        [
+          {
+            "node": "LIMITER — Wait For Capacity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "KEYPOOL — Capacity Timeout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LIMITER — Wait For Capacity": {
+      "main": [
+        [
+          {
+            "node": "KEYPOOL — Select Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagnvidia0000",
+      "name": "nvidia"
+    }
+  ],
+  "versionId": "4cb169af-d8ae-464e-a069-832aeed94d97"
+}

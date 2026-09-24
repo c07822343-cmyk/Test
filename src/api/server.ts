@@ -34,7 +34,14 @@ export function signLink(secret: string, projectId: string, resource: string, ex
 function stepCtx(req: FastifyRequest, fallbackActor: string): StepContext {
   const h = req.headers;
   const exec = typeof h['x-n8n-execution-id'] === 'string' ? h['x-n8n-execution-id'] : null;
-  const wf = typeof h['x-n8n-workflow'] === 'string' ? h['x-n8n-workflow'] : null;
+  let wf = typeof h['x-n8n-workflow'] === 'string' ? h['x-n8n-workflow'] : null;
+  if (wf) {
+    try {
+      wf = decodeURIComponent(wf).slice(0, 120);
+    } catch {
+      /* keep raw */
+    }
+  }
   return { actor: exec ? `n8n:${wf ?? 'workflow'}` : fallbackActor, executionId: exec, workflow: wf };
 }
 

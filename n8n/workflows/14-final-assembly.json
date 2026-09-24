@@ -1,0 +1,243 @@
+{
+  "id": "apxWf14FinalAsmb",
+  "name": "ApexWeb 14 — Final Assembly",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "38eaa564-d23a-4813-a9fe-4f92407edfaa",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## 14 · Final Assembly\nREVIEW → QA → **FINAL RESULT**.\n\nTriggered by the core when a project's task graph has settled with every required task complete. Packages the site, docs and reports (tar.gz), and the Main Agent writes the completion report: Completed · Agents Used · Outputs · Issues · QA · Files · Recommended Next Step.",
+        "width": 580,
+        "height": 260,
+        "color": 4
+      }
+    },
+    {
+      "id": "9cdacd16-ebeb-4b0b-a2c9-686e18ea06c0",
+      "name": "ASSEMBLY — Project Settled",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "27968ef1-c84b-461d-a845-ffdd6326c418",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apexweb/final-assembly",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredWebhook01",
+          "name": "ApexWeb Webhook Secret"
+        }
+      }
+    },
+    {
+      "id": "18d2e586-95df-4956-aa4e-b111bc30b387",
+      "name": "ASSEMBLY — Assemble Package",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/main/projects/' + $json.body.project_id + '/assemble' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "1bf57baf-d93c-49ce-a38d-12419ced6ea9",
+      "name": "QA — Final QA Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eef6dc9c-6dc1-4e8a-a17a-56f90dc167bc",
+              "leftValue": "={{ $json.report?.qa?.passed === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "7a9e81a7-ad57-45d6-a1ba-b26925855a6e",
+      "name": "OUTPUT — Completion Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -140
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ project_id: $json.project_id, qa: 'passed', completed: $json.report.completed, agents_used: $json.report.agents_used.map(a => a.name), files: $json.report.files, next_step: $json.report.recommended_next_step }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "d3bb81e2-9907-43eb-a9ad-b338af0b6144",
+      "name": "OUTPUT — Completion Report (QA Issues)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        20
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ project_id: $json.project_id, qa: $json.report?.qa?.verdict ?? 'not run', remaining_issues: $json.report?.qa?.remaining_issues ?? [], completed: $json.report?.completed, files: $json.report?.files }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "1622c630-9a7d-45e1-ac33-901996f38cf0",
+      "name": "ASSEMBLY — Assembly Failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        160
+      ],
+      "parameters": {},
+      "notes": "Project stays ASSEMBLING; re-send this webhook or call /v1/main/projects/:id/assemble to retry",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "ASSEMBLY — Project Settled": {
+      "main": [
+        [
+          {
+            "node": "ASSEMBLY — Assemble Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ASSEMBLY — Assemble Package": {
+      "main": [
+        [
+          {
+            "node": "QA — Final QA Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ASSEMBLY — Assembly Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA — Final QA Passed?": {
+      "main": [
+        [
+          {
+            "node": "OUTPUT — Completion Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OUTPUT — Completion Report (QA Issues)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagqa00000000",
+      "name": "qa"
+    }
+  ],
+  "versionId": "1afac351-0291-4efa-a0bc-8af254ee91d8"
+}

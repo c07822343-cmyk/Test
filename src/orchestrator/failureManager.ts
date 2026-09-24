@@ -84,7 +84,7 @@ export function decideFailure(ctx: FailureContext): FailureDecision {
   }
 
   if (ctx.errorClass === 'model_unavailable' || ctx.errorClass === 'client_error') {
-    if (nextModel) return { ...base, action: 'switch_model', delayMs: 500, refundAttempt: true, nextModel, reason: `${ctx.errorClass} on ${ctx.currentModel}; switching to ${nextModel}` };
+    if (nextModel && ctx.currentModel) return { ...base, action: 'switch_model', delayMs: 500, refundAttempt: true, nextModel, reason: `${ctx.errorClass} on ${ctx.currentModel}; switching to ${nextModel}` };
     if (ctx.optional) return { ...base, action: 'fail_optional', delayMs: 0, reason: 'no alternative model for optional task' };
     return { ...base, action: 'escalate', delayMs: 0, reason: `${ctx.errorClass} and no alternative model available` };
   }

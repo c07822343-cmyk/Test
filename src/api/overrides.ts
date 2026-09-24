@@ -35,6 +35,8 @@ export async function retryTask(s: Services, taskId: string, actor: string): Pro
   const inputs = { ...t.inputs };
   delete inputs.rescued;
   delete inputs.previous_attempt_error;
+  delete inputs.failure_count;
+  delete inputs.models_tried;
   const out = await s.queue.transition(taskId, [t.status], t.dependencies.length ? 'WAITING' : 'QUEUED', {
     attempt: 0, capacity_waits: 0, error: null, inputs, not_before: null, completed_at: null,
   }, { type: 'human_retry', actor });

@@ -1,0 +1,166 @@
+{
+  "id": "apxWf06ModelRout",
+  "name": "ApexWeb 06 — Model Router",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a8bb9133-fd4a-4a25-ab41-1f929d2a494a",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ],
+      "parameters": {
+        "content": "## 06 · Model Router\nAgents request a **capability** (planning, code, copywriting, review, vision, fast classification…). The router picks an available NVIDIA model from the capability registry (`config/models.json`) with fallbacks; unavailable models are skipped automatically.",
+        "width": 560,
+        "height": 220,
+        "color": 5
+      }
+    },
+    {
+      "id": "2530d34b-ea92-46b7-a84a-5023c298aca1",
+      "name": "MODEL — Receive Capability Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "76e46f41-dbb6-47ff-ac1c-4ff845b9ba36",
+      "name": "MODEL — Select NVIDIA Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://apexweb-core:8080' + '/v1/tasks/' + $('MODEL — Receive Capability Request').first().json.task_id + '/model' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Execution-Id",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-N8N-Workflow",
+              "value": "={{ encodeURIComponent($workflow.name) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apxCredCoreApi01",
+          "name": "ApexWeb Core API"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notesInFlow": false
+    },
+    {
+      "id": "01d91ecf-86fe-459e-a496-ca852ad86a01",
+      "name": "MODEL — Model Selected",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        -60
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ ok: true, task_id: $('MODEL — Receive Capability Request').first().json.task_id, model: $json.model, capability: $json.capability, fallbacks: $json.fallbacks }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "63d5d245-a987-415d-a35e-3cb4751f4e16",
+      "name": "MODEL — No Model Available",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        120
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ ok: false, error_class: 'model_unavailable', message: String($json.error?.message ?? $json.error ?? 'no model').slice(0, 1000) }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "MODEL — Receive Capability Request": {
+      "main": [
+        [
+          {
+            "node": "MODEL — Select NVIDIA Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MODEL — Select NVIDIA Model": {
+      "main": [
+        [
+          {
+            "node": "MODEL — Model Selected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MODEL — No Model Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "generatedBy": "apexweb-os src/n8n/generate.ts"
+  },
+  "tags": [
+    {
+      "id": "apxTagapexweb000",
+      "name": "apexweb"
+    },
+    {
+      "id": "apxTagnvidia0000",
+      "name": "nvidia"
+    }
+  ],
+  "versionId": "25eabdcc-bfe0-4129-a8cc-13f7e9425496"
+}

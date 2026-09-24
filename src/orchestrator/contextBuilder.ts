@@ -102,7 +102,7 @@ export class ContextBuilder {
         kind: task.kind,
         attempt: task.attempt,
         revision: task.revision,
-        inputs: Object.fromEntries(Object.entries(task.inputs ?? {}).filter(([k]) => !['revision_feedback', 'issues', 'urls', 'children', 'spawn_round', 'previous_attempt_error', 'rescued'].includes(k))),
+        inputs: Object.fromEntries(Object.entries(task.inputs ?? {}).filter(([k]) => !['revision_feedback', 'issues', 'urls', 'children', 'spawn_round', 'previous_attempt_error', 'rescued', 'failure_count', 'models_tried'].includes(k))),
       }),
     });
     sections.push({ title: 'PROJECT BRIEF', priority: 95, body: json(brief) });
