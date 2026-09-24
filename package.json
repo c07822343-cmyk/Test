@@ -1,0 +1,37 @@
+{
+  "name": "apexweb-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ApexWeb autonomous AI operating system: Main Agent orchestrator, specialist agent registry, NVIDIA multi-key pool with rolling-window rate limiting, persistent task queue, and n8n visual control plane.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "migrate": "node src/db/migrate.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test --test-concurrency=1 --test-timeout=300000 'test/unit/**/*.test.ts' 'test/integration/**/*.test.ts'",
+    "test:unit": "node --test --test-timeout=60000 'test/unit/**/*.test.ts'",
+    "test:integration": "node --test --test-concurrency=1 --test-timeout=300000 'test/integration/**/*.test.ts'",
+    "n8n:generate": "node src/n8n/generate.ts",
+    "n8n:bootstrap": "node scripts/n8n-bootstrap.ts",
+    "keys:check": "node scripts/check-keys.ts",
+    "demo:hvac": "node scripts/demo-hvac.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.6.1",
+    "node-html-parser": "^7.0.1",
+    "pg": "^8.16.3",
+    "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "axe-core": "^4.10.3",
+    "playwright-core": "1.56.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+data/
+*.log
+.n8n/
+n8n/credentials/*.json
+!n8n/credentials/README.md
+coverage/
